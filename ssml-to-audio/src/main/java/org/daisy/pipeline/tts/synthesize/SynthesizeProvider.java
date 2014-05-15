@@ -11,27 +11,51 @@ import com.xmlcalabash.runtime.XAtomicStep;
 
 public class SynthesizeProvider implements XProcStepProvider {
 	private TTSRegistry mRegistry;
-	private AudioEncoder mEncoder;
+	private AudioServices mAudioServices;
 
 	@Override
 	public XProcStep newStep(XProcRuntime runtime, XAtomicStep step) {
-		return new SynthesizeStep(runtime, step, mRegistry, mEncoder);
+		boolean error = false;
+		AudioEncoder encoder = null;
+		if (mRegistry == null) {
+			runtime.error(new RuntimeException("Registry of TTS engines is missing."));
+			error = true;
+		}
+
+		if (mAudioServices == null) {
+			runtime.error(new RuntimeException("Registry of audio encoders is missing."));
+			error = true;
+		} else {
+			// TODO: select an AudioService according to the user's preferences
+			encoder = mAudioServices.getEncoder();
+			if (encoder == null) {
+				runtime.error(new RuntimeException("No audio encoder found."));
+				error = true;
+			}
+		}
+
+		if (error)
+			return null;
+
+		//warning: a reference is kept on the audio encoder during all the synthesizing process,
+		//even if it is unregistered.
+
+		return new SynthesizeStep(runtime, step, mRegistry, encoder);
 	}
 
-	public void setTTSRegistry(TTSRegistry registry) {
+	protected void setTTSRegistry(TTSRegistry registry) {
 		mRegistry = registry;
 	}
 
-	public void unsetTTSRegistry(TTSRegistry registry) {
+	protected void unsetTTSRegistry(TTSRegistry registry) {
 		mRegistry = null;
 	}
 
-	public void setAudioServices(AudioServices audioServices) {
-		// TODO: select an AudioService according to the user's preferences
-		mEncoder = audioServices.getEncoder();
+	protected void setAudioServices(AudioServices audioServices) {
+		mAudioServices = audioServices;
 	}
 
-	public void unsetAudioServices(Object encoder) {
-		mEncoder = null;
+	protected void unsetAudioServices(AudioServices audioServices) {
+		mAudioServices = null;
 	}
 }

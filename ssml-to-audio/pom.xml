@@ -14,7 +14,7 @@
   <version>1.0.0-SNAPSHOT</version>
   <artifactId>ssml-to-audio</artifactId>
   <packaging>bundle</packaging>
-  
+
   <name>DAISY Pipeline 2 module :: SSML to Audio clips</name>
   <description>Convert SSML to a list of Audio Clips</description>
 
@@ -23,12 +23,12 @@
       <groupId>org.daisy.pipeline.modules</groupId>
       <artifactId>tts-common</artifactId>
     </dependency>
-      
+
     <dependency>
       <groupId>org.daisy.pipeline.modules</groupId>
       <artifactId>audio-common</artifactId>
       <version>1.0.0-SNAPSHOT</version>
-    </dependency>    
+    </dependency>
 
     <!-- needed to use com.xmlcalabash.library.DefaultStep ... -->
     <dependency>
@@ -36,12 +36,11 @@
       <artifactId>com.xmlcalabash</artifactId>
       <version>1.0.3</version>
     </dependency>
-   
+
     <!-- needed to use org.daisy.common.xproc.calabash.XProcStepProvider -->
     <dependency>
       <groupId>org.daisy.pipeline</groupId>
       <artifactId>calabash-adapter</artifactId>
-      <version>1.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
@@ -50,7 +49,7 @@
       <version>9.4</version>
     </dependency>
   </dependencies>
-  
+
   <build>
     <plugins>
       <plugin>
@@ -59,6 +58,7 @@
         <configuration>
           <instructions>
             <Service-Component>OSGI-INF/synthesize.xml</Service-Component>
+	    <Export-Package/>
           </instructions>
         </configuration>
       </plugin>

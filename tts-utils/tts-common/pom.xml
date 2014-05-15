@@ -14,11 +14,11 @@
 
   <version>1.0.0-SNAPSHOT</version>
   <artifactId>tts-common</artifactId>
-  <packaging>bundle</packaging>  
+  <packaging>bundle</packaging>
 
   <name>DAISY Pipeline 2 module :: TTS API</name>
   <description>Common API for TTS functionality</description>
-  
+
   <build>
     <plugins>
       <plugin>
@@ -34,20 +34,39 @@
   </build>
 
   <dependencies>
-    <!--  for its Multimap -->
     <dependency>
-      <groupId>com.googlecode.guava-osgi</groupId>
-      <artifactId>guava-osgi</artifactId>
-      <version>11.0.1</version>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.11</version>
+      <scope>test</scope>
     </dependency>
-  	
-  
+
+    <!-- For its TreeWriter -->
+    <dependency>
+      <groupId>org.daisy.libs</groupId>
+      <artifactId>com.xmlcalabash</artifactId>
+      <version>1.0.9</version>
+    </dependency>
+
     <!-- the TTS service interface uses XdmNode -->
     <dependency>
       <groupId>net.sf.saxon</groupId>
       <artifactId>Saxon-HE</artifactId>
       <version>9.4</version>
     </dependency>
+
+    <!-- For its Multimap. -->
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>15.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
   </dependencies>
 
 </project>

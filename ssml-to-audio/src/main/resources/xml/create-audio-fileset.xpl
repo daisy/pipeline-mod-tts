@@ -2,10 +2,10 @@
 		xmlns:p="http://www.w3.org/ns/xproc"
 		xmlns:px="http://www.daisy.org/ns/pipeline/xproc"
 		xmlns:cx="http://xmlcalabash.com/ns/extensions"
-		xmlns:d="http://www.daisy.org/ns/pipeline/data">	
+		xmlns:d="http://www.daisy.org/ns/pipeline/data">
 
-  <p:import href="http://www.daisy.org/pipeline/modules/fileset-utils/xproc/fileset-library.xpl"/>
-  
+  <p:import href="http://www.daisy.org/pipeline/modules/fileset-utils/library.xpl"/>
+
   <p:input port="source" primary="true" /> <!-- audio clips -->
   <p:output port="fileset.out" sequence="false" primary="true"/>  <!-- fileset of audio files -->
 
@@ -32,5 +32,5 @@
     </px:fileset-add-entry>
   </p:for-each>
   <px:fileset-join/>
-  
+
 </p:declare-step>

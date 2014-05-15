@@ -6,7 +6,7 @@ import net.sf.saxon.s9api.QName;
  * Transform the SSML according to the TTS engine's features and bugs
  */
 public interface SSMLAdapter {
-	String getHeader();
+	String getHeader(String voiceName);
 
 	String getFooter();
 
@@ -14,6 +14,11 @@ public interface SSMLAdapter {
 	 * @return null to discard the element
 	 */
 	QName adaptElement(QName element);
+
+	/**
+	 * @return a clean version of the input text.
+	 */
+	String adaptText(String text);
 
 	/**
 	 * @return null to discard the attribute

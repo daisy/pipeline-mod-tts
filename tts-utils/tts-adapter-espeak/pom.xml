@@ -18,14 +18,25 @@
 
   <name>DAISY Pipeline 2 module :: TTS Adapter for ESpeak</name>
   <description>Implementation of the TTS API for the ESpeak TTS</description>
-  
+
   <dependencies>
     <dependency>
       <groupId>org.daisy.pipeline.modules</groupId>
       <artifactId>tts-common</artifactId>
     </dependency>
+     <dependency>
+       <groupId>junit</groupId>
+       <artifactId>junit</artifactId>
+       <version>4.11</version>
+       <scope>test</scope>
+   </dependency>
+   <!-- For the binary finder: -->
+   <dependency>
+     <groupId>org.daisy.pipeline</groupId>
+     <artifactId>common-utils</artifactId>
+   </dependency>
   </dependencies>
-  
+
   <build>
     <plugins>
       <plugin>
@@ -34,10 +45,36 @@
         <configuration>
           <instructions>
             <Service-Component>OSGI-INF/tts-service.xml</Service-Component>
+	    <Export-Package/>
           </instructions>
         </configuration>
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <id>notester</id>
+      <build>
+	<plugins>
+	  <plugin>
+	    <artifactId>maven-surefire-plugin</artifactId>
+	    <configuration>
+	      <excludes>
+		<exclude>**/EspeakTest.java</exclude>
+	      </excludes>
+	    </configuration>
+	  </plugin>
+	</plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>tester</id>
+    </profile>
+  </profiles>
+
 
 </project>

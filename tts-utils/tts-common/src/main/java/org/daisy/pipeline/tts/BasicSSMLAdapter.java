@@ -3,26 +3,29 @@ package org.daisy.pipeline.tts;
 import net.sf.saxon.s9api.QName;
 
 public class BasicSSMLAdapter implements SSMLAdapter {
+
 	@Override
-	public String getHeader() {
+	public String getHeader(String voiceName) {
 		return "";
 	}
 
 	@Override
 	public String getFooter() {
-		return "";
+		//we assume the adapter is called on a single sentence
+		return SSMLUtil.getBreakAfterSentence();
 	}
 
 	@Override
 	public QName adaptElement(QName element) {
-		return element;
+		if ("w".equals(element.getLocalName()) || "token".equals(element.getLocalName()))
+			return null; //conversion from SSML 1.1 to SSML 1.0
+		return new QName(null, element.getLocalName());
 	}
 
 	@Override
 	public QName adaptAttributeName(QName element, QName attr, String value) {
-		if (element.getLocalName().equals("s")
-		        && !attr.getLocalName().equals("lang"))
-			return null; //only xml:lang is allowed in the <s> markups
+		if (element.getLocalName().equals("s"))
+			return null;
 		return attr;
 	}
 
@@ -31,4 +34,9 @@ public class BasicSSMLAdapter implements SSMLAdapter {
 		return value;
 	}
 
+	@Override
+	public String adaptText(String text) {
+		//replace non-breaking spaces with regular white spaces.
+		return text.replace(" ", " ").replace("’", "'").replace("”", "\"");
+	}
 }

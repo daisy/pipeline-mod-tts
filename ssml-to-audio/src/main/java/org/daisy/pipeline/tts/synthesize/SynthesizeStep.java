@@ -1,8 +1,10 @@
 package org.daisy.pipeline.tts.synthesize;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
@@ -12,6 +14,7 @@ import net.sf.saxon.s9api.XdmSequenceIterator;
 
 import org.daisy.pipeline.audio.AudioEncoder;
 import org.daisy.pipeline.tts.TTSRegistry;
+import org.daisy.pipeline.tts.TTSService.SynthesisException;
 
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
@@ -21,20 +24,22 @@ import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.TreeWriter;
 
-public class SynthesizeStep extends DefaultStep implements
-        FormatSpecifications, IPipelineLogger {
+public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
+        IPipelineLogger {
 
 	private ReadablePipe source = null;
 	private WritablePipe result = null;
 	private SynthesisWorkerPool mWorkerPool;
 	private XProcRuntime mRuntime;
+	private TTSRegistry mTTSRegistry;
+	private Random mRandGenerator;
+	private String mTempDirectory;
 
 	private static String convertSecondToString(double seconds) {
-		long milliseconds = (long) (1000 * seconds);
-		int iseconds = (int) (seconds);
-		return String.format("%d:%02d:%02d.%d", iseconds / 3600,
-		        (iseconds % 3600) / 60, (iseconds % 60), milliseconds - 1000
-		                * iseconds);
+		int iseconds = (int) (Math.floor(seconds));
+		int milliseconds = (int) (Math.floor(1000 * (seconds - iseconds)));
+		return String.format("%d:%02d:%02d.%03d", iseconds / 3600, (iseconds / 60) % 60,
+		        (iseconds % 60), milliseconds);
 	}
 
 	public static XdmNode getFirstChild(XdmNode node) {
@@ -46,25 +51,28 @@ public class SynthesizeStep extends DefaultStep implements
 		}
 	}
 
-	public SynthesizeStep(XProcRuntime runtime, XAtomicStep step,
-	        TTSRegistry ttsRegistry, AudioEncoder encoder) {
+	public SynthesizeStep(XProcRuntime runtime, XAtomicStep step, TTSRegistry ttsRegistry,
+	        AudioEncoder encoder) {
 		super(runtime, step);
 		mRuntime = runtime;
-		printInfo("New synthesize step. TTSregistry set: "
-		        + (ttsRegistry != null) + ", AudioEncoder set: "
-		        + (encoder != null));
-		mWorkerPool = new SynthesisWorkerPool(25, ttsRegistry, encoder, this);
+		mTTSRegistry = ttsRegistry;
+		int nrThreads = Integer.valueOf(System.getProperty("tts.threads", "12"));
+		mWorkerPool = new SynthesisWorkerPool(nrThreads, ttsRegistry, encoder, this);
+		mRandGenerator = new Random();
+		mTempDirectory = System.getProperty("audio.tmpdir");
+		if (mTempDirectory == null)
+			mTempDirectory = System.getProperty("java.io.tmpdir");
 	}
 
 	@Override
 	synchronized public void printInfo(String message) {
-		mRuntime.getMessageListener().info(this, null, message);
+		mRuntime.info(this, null, message);
 	}
 
 	@Override
 	synchronized public void printDebug(String message) {
 		if (mRuntime.getDebug()) {
-			mRuntime.getMessageListener().info(this, null, message);
+			mRuntime.info(this, null, message);
 		}
 	}
 
@@ -88,7 +96,7 @@ public class SynthesizeStep extends DefaultStep implements
 		result.resetWriter();
 	}
 
-	public void traverse(XdmNode node) {
+	public void traverse(XdmNode node) throws SynthesisException {
 		if (SentenceTag.equals(node.getNodeName())) {
 			mWorkerPool.pushSSML(node);
 		} else {
@@ -102,17 +110,40 @@ public class SynthesizeStep extends DefaultStep implements
 	public void run() throws SaxonApiException {
 		super.run();
 
-		// dispatch the SSML sentences to the threads
-		List<SoundFragment> allSoundFragments = Collections
-		        .synchronizedList(new LinkedList<SoundFragment>());
-		mWorkerPool.initialize(allSoundFragments);
-		while (source.moreDocuments()) {
-			traverse(getFirstChild(source.read()));
-			mWorkerPool.endSection();
-		}
+		List<SoundFragment> allSoundFragments;
 
-		// run the synthesis/encoding threads
-		mWorkerPool.synthesizeAndWait();
+		synchronized (mTTSRegistry) {
+			//only one synthesis step at a time! the synthesis step is
+			//already multithreaded anyway.
+
+			mTTSRegistry.openSynthesizingContext();
+
+			File audioOutputDir = null;
+			do {
+				String audioDir = mTempDirectory + "/";
+				for (int k = 0; k < 2; ++k)
+					audioDir += Long.toString(mRandGenerator.nextLong(), 32);
+				audioOutputDir = new File(audioDir);
+			} while (audioOutputDir.exists());
+			audioOutputDir.mkdir();
+			mWorkerPool.initialize(audioOutputDir);
+
+			try {
+				while (source.moreDocuments()) {
+					traverse(getFirstChild(source.read()));
+					mWorkerPool.endSection();
+				}
+				// run the synthesis/encoding threads
+				allSoundFragments = Collections
+				        .synchronizedList(new LinkedList<SoundFragment>());
+				mWorkerPool.synthesizeAndWait(allSoundFragments);
+			} catch (SynthesisException e) {
+				mRuntime.error(e);
+				return;
+			} finally {
+				mTTSRegistry.closeSynthesizingContext();
+			}
+		}
 
 		printInfo("number of sound fragments: " + allSoundFragments.size());
 
@@ -123,10 +154,8 @@ public class SynthesizeStep extends DefaultStep implements
 		for (SoundFragment sf : allSoundFragments) {
 			tw.addStartElement(ClipTag);
 			tw.addAttribute(Audio_attr_id, sf.id);
-			tw.addAttribute(Audio_attr_clipBegin,
-			        convertSecondToString(sf.clipBegin));
-			tw.addAttribute(Audio_attr_clipEnd,
-			        convertSecondToString(sf.clipEnd));
+			tw.addAttribute(Audio_attr_clipBegin, convertSecondToString(sf.clipBegin));
+			tw.addAttribute(Audio_attr_clipEnd, convertSecondToString(sf.clipEnd));
 			tw.addAttribute(Audio_attr_src, sf.soundFileURI);
 			tw.addEndElement();
 		}

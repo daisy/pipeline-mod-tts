@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
   <modelVersion>4.0.0</modelVersion>
-
   <parent>
     <groupId>org.daisy.pipeline.modules</groupId>
     <artifactId>modules-parent</artifactId>
@@ -18,9 +16,15 @@
   <description>Parent POM for modules related to TTS-based production</description>
 
   <modules>
+    <!-- The modules att-nar and sapi-nar are excluded from the main built -->
+    <!-- because they are platform-specific. The module tts-adapter-attnative -->
+    <!-- too, because it depends on att-nar which cannot be publicly deployed -->
+    <!-- according to the AT&T's license. -->
     <module>tts-utils/tts-common</module>
     <module>tts-utils/tts-adapter-espeak</module>
-    <module>tts-utils/tts-adapter-linuxatt4</module>
+    <module>tts-utils/tts-adapter-acapela</module>
+    <module>tts-utils/tts-adapter-attbin</module>
+    <module>tts-utils/tts-adapter-sapinative</module>
     <module>epub3-to-ssml</module>
     <module>ssml-to-audio</module>
     <module>zedai-to-ssml</module>
@@ -53,7 +57,22 @@
       </dependency>
       <dependency>
 	<groupId>org.daisy.pipeline.modules</groupId>
-	<artifactId>tts-adapter-linuxatt4</artifactId>
+	<artifactId>tts-adapter-attbin</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+	<groupId>org.daisy.pipeline.modules</groupId>
+	<artifactId>tts-adapter-attnative</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+	<groupId>org.daisy.pipeline.modules</groupId>
+	<artifactId>tts-adapter-acapela</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+	<groupId>org.daisy.pipeline.modules</groupId>
+	<artifactId>tts-adapter-sapinative</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
@@ -76,7 +95,21 @@
 	<artifactId>dtbook-to-ssml</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
       </dependency>
+      <dependency>
+	<groupId>org.daisy.pipeline</groupId>
+	<artifactId>common-utils</artifactId>
+	<version>2.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+	<groupId>org.daisy.pipeline</groupId>
+	<artifactId>calabash-adapter</artifactId>
+	<version>2.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+	<groupId>org.slf4j</groupId>
+	<artifactId>slf4j-api</artifactId>
+	<version>1.6.4</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
-
 </project>
