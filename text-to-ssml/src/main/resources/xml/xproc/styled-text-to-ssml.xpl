@@ -17,7 +17,7 @@
   <p:option name="section-attr-val" required="false" select="''"/>
   <p:option name="first-sheet-uri" required="false" select="''"/>
   <p:option name="style-ns" required="true"/>
-  
+
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
 
   <!-- Encapsulates the section elements into tmp:group. -->
@@ -206,8 +206,17 @@
       <p:empty/>
     </p:input>
   </p:xslt>
-
   <px:message message="PLS info converted to SSML"/>
+
+  <p:xslt name="filter">
+    <p:input port="stylesheet">
+      <p:document href="../xslt/filter-chars.xsl"/>
+    </p:input>
+    <p:input port="parameters">
+      <p:empty/>
+    </p:input>
+  </p:xslt>
+  <px:message message="Unsolicited graphical characters removed."/>
 
   <!-- split the result to extract the wrapped SSML files -->
   <p:delete match="@tmp:*"/>

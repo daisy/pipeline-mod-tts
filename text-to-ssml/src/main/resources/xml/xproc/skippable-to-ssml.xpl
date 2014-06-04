@@ -11,7 +11,7 @@
 
   <p:option name="skippable-elements"/>
   <p:option name="style-ns"/>
-  
+
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
 
   <!-- Generate the rough skeleton of the SSML document. The document
