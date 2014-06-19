@@ -8,6 +8,8 @@ import javax.sound.sampled.AudioFormat;
 
 import net.sf.saxon.s9api.XdmNode;
 
+import org.daisy.pipeline.audio.AudioBuffer;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 
 public interface TTSService {
@@ -30,86 +32,78 @@ public interface TTSService {
 		}
 	}
 
-	public static class RawAudioBuffer {
-		public RawAudioBuffer() {
-
-		}
-
-		public RawAudioBuffer(int size) {
-			output = new byte[size];
-		}
-
-		public byte[] output;
-		public int offsetInOutput;
-	};
-
 	/**
 	 * This method is called by TTSRegistry.openSynthesizingContext() from the
 	 * pipeline's step thread. It should test the TTSService, configures it and
-	 * allocates temporary resources.
+	 * allocates temporary resources. It must not catch InterruptuedExceptions.
 	 */
-	void onBeforeOneExecution() throws SynthesisException;
+	void onBeforeOneExecution() throws SynthesisException, InterruptedException;
 
 	/**
 	 * This method is called by TTSRegistry.closeSynthesisContext() from the
-	 * pipeline's step thread after releaseThreadResources(). It releases the
-	 * resources allocated by onBeforeOneExecution() if onBeforeOneExecution()
-	 * hasn't thrown any exception.
+	 * pipeline's step thread after all the text has been synthesized. It
+	 * releases the resources allocated by onBeforeOneExecution() if
+	 * onBeforeOneExecution() hasn't thrown any exception.
 	 */
 	public void onAfterOneExecution();
 
 	/**
 	 * Allocate new resources (such as TCP connections) unique for each thread.
 	 * All the allocation calls are made from the pipeline's step thread before
-	 * any sentence is processed.
+	 * any sentence is processed. It must not catch InterruptuedExceptions.
 	 * 
-	 * @return the resources. It can be null
+	 * @return the resources, null if the TTS needs no resource.
 	 * @throws SynthesisException
 	 */
-	public TTSResource allocateThreadResources() throws SynthesisException;
+	public TTSResource allocateThreadResources() throws SynthesisException,
+	        InterruptedException;
 
 	/**
-	 * In regular situations, all the release calls are made in a single thread
-	 * after all the sentences have been processed. The method can also be
-	 * called when a TTS OSGi component is disable before the end of the
-	 * synthesizing process. (e.g. CTRL-C).
+	 * In regular situations, this method will be called by the TTS threads
+	 * after all the sentences have been processed. In some situations, the
+	 * method can be called by the TTSRegistry when a TTS OSGi component is
+	 * disable before the expected end of the synthesizing process.
 	 * 
 	 * @param resources is the object returned by allocateThreadResource()
 	 */
-	void releaseThreadResources(Object resources) throws SynthesisException;
+	void releaseThreadResources(TTSResource resources) throws SynthesisException,
+	        InterruptedException;
 
 	/**
-	 * This function must be thread-safe for there is only one instance of
+	 * This method must be thread-safe for there is only one instance of
 	 * TTSService for each TTS processors. But @param threadResources is here to
 	 * prevent you from locking internal resources.
 	 * 
 	 * @param ssml is the SSML to synthesize. You may need to convert it to the
-	 *            format understandable for the TTS (e.g. SAPI). The SSML code
-	 *            must include the <mark> and the <break/> at the end.
+	 *            format understandable for the TTS service (e.g. Apple's ESC).
+	 *            The SSML code must include the <mark> and the <break/> at the
+	 *            end.
 	 * @param voice is the voice the synthesizer must use. It is guaranteed to
-	 *            be one returned by getAvailableVoices()
-	 * @param output is the resulting raw audio data. Ideally the address of the
-	 *            buffer is left unchanged, but a new buffer can be allocated
-	 *            when the audio data do not fit in the one provided. The new
-	 *            buffer must contain the previous data as well.
-	 *            SoundUtil.realloc() is designed to help you doing it.
+	 *            be one of those returned by getAvailableVoices()
 	 * @param threadResources is the object returned by
-	 *            allocateThreadResource(). It may contain persistent buffers,
-	 *            opened file streams, TCP connections and so on. The boolean
-	 *            field 'released' is guaranteed to be false, i.e. the resource
-	 *            provided is always valid and will remain so during the call.
-	 * @param marks are the returned pairs (markName, offsetInOutput)
+	 *            allocateThreadResource(). It may contain small persistent
+	 *            buffers, opened file streams, TCP connections and so on. The
+	 *            boolean field 'released' is guaranteed to be false, i.e. the
+	 *            resource provided is always valid and will remain so during
+	 *            the call.
+	 * @param marks are the returned pairs (markName, offset-in-output)
 	 *            corresponding to the ssml:marks of @param ssml. The order must
-	 *            be kept. The provided list is always empty. The offsetInOutput
-	 *            are relative to the new data inserted (they start at 0 no
-	 *            matter what @param audioBuffer already contains).
+	 *            be kept. The provided list is always empty. The
+	 *            offsets-in-output are relative to the new data. That is, they
+	 *            start at 0.
+	 * @param bufferAllocator is the object that the TTS Service must use to
+	 *            allocate new audio buffers.
 	 * @param retry is true when this is not the first time the thread attempts
 	 *            to synthesize @param smml. In such cases, you may reinitialize
-	 *            the connection to the remote TTS server.
+	 *            the connection to remote TTS servers if there are any.
+	 * 
+	 * 
+	 * @return a list of adjacent PCM chunks produced by the TTS processor.
 	 */
-	void synthesize(XdmNode ssml, Voice voice, RawAudioBuffer audioBuffer,
-	        Object threadResources, List<Map.Entry<String, Integer>> marks, boolean retry)
-	        throws SynthesisException, InterruptedException;
+	public Collection<AudioBuffer> synthesize(XdmNode ssml, Voice voice,
+	        TTSResource threadResources, List<Map.Entry<String, Integer>> marks,
+	        AudioBufferAllocator bufferAllocator, boolean retry) throws SynthesisException,
+	        InterruptedException, MemoryException;
 
 	/**
 	 * Force interruption of the execution of synthesize() when the thread-level
@@ -147,7 +141,8 @@ public interface TTSService {
 	/**
 	 * Called from the pipeline's step thread.
 	 */
-	public Collection<Voice> getAvailableVoices() throws SynthesisException;
+	public Collection<Voice> getAvailableVoices() throws SynthesisException,
+	        InterruptedException;
 
 	/**
 	 * @return the name of the mark that will be added to check whether all the
@@ -157,10 +152,19 @@ public interface TTSService {
 	public String endingMark();
 
 	/**
-	 * @return true to recommend the threads to release the resources once there
-	 *         is no more text to synthesize. This can speed up the other
-	 *         working threads if the resources consume processing units of
-	 *         remote servers.
+	 * @return the number of text-to-pcm threads reserved for this TTS
+	 *         processor. Different values than zero make only sense if the TTS
+	 *         speed is limited by the number of opened resources rather than by
+	 *         the number of cores. In such cases, we want to maximize the time
+	 *         spent on using the TTS resources by avoiding using threads for
+	 *         something else (e.g audio encoding or calling other TTS
+	 *         processors).
 	 */
-	public boolean resourcesReleasedASAP();
+	public int reservedThreadNum();
+
+	/**
+	 * @return the number of expected milliseconds the TTS will take to process
+	 *         a word. It is used for computing dynamic timeout durations.
+	 */
+	public int expectedMillisecPerWord();
 }

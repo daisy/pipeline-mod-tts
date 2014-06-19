@@ -5,12 +5,23 @@ import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 public abstract class AbstractTTSService implements TTSService {
 
 	@Override
-	public TTSResource allocateThreadResources() throws SynthesisException {
+	public int expectedMillisecPerWord() {
+		return 100;
+	}
+
+	@Override
+	public int reservedThreadNum() {
+		return 0;
+	}
+
+	@Override
+	public TTSResource allocateThreadResources() throws SynthesisException,
+	        InterruptedException {
 		return null;
 	}
 
 	@Override
-	public void onBeforeOneExecution() throws SynthesisException {
+	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
 	}
 
 	@Override
@@ -18,7 +29,8 @@ public abstract class AbstractTTSService implements TTSService {
 	}
 
 	@Override
-	public void releaseThreadResources(Object resources) throws SynthesisException {
+	public void releaseThreadResources(TTSResource resources) throws SynthesisException,
+	        InterruptedException {
 	}
 
 	@Override
@@ -37,12 +49,6 @@ public abstract class AbstractTTSService implements TTSService {
 	}
 
 	@Override
-	public boolean resourcesReleasedASAP() {
-		return false;
-	}
-
-	@Override
 	public void interruptCurrentWork(TTSResource resource) {
 	}
-
 }

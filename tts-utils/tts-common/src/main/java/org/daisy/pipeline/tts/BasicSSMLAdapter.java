@@ -36,7 +36,11 @@ public class BasicSSMLAdapter implements SSMLAdapter {
 
 	@Override
 	public String adaptText(String text) {
-		//replace non-breaking spaces with regular white spaces.
+		/*
+		 * replace non-breaking spaces with regular white spaces and other stuff
+		 * (should not be necessary for TTS processors in a proper working
+		 * conditions).
+		 */
 		return text.replace(" ", " ").replace("’", "'").replace("”", "\"");
 	}
 }

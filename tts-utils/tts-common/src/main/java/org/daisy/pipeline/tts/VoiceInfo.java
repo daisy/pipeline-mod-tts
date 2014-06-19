@@ -35,6 +35,12 @@ public class VoiceInfo {
 		this.priority = priority;
 	}
 
+	VoiceInfo(Voice v, Locale language) {
+		this.voice = v;
+		this.language = language;
+		this.priority = -1; //not used in the comparison
+	}
+
 	@Override
 	public int hashCode() {
 		return this.voice.hashCode() ^ this.language.hashCode();

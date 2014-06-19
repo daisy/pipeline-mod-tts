@@ -1,8 +1,10 @@
 package org.daisy.pipeline.tts.synthesize;
 
+import java.util.concurrent.Semaphore;
+
 import org.daisy.common.xproc.calabash.XProcStepProvider;
-import org.daisy.pipeline.audio.AudioEncoder;
 import org.daisy.pipeline.audio.AudioServices;
+import org.daisy.pipeline.tts.AudioBufferTracker;
 import org.daisy.pipeline.tts.TTSRegistry;
 
 import com.xmlcalabash.core.XProcRuntime;
@@ -12,11 +14,20 @@ import com.xmlcalabash.runtime.XAtomicStep;
 public class SynthesizeProvider implements XProcStepProvider {
 	private TTSRegistry mRegistry;
 	private AudioServices mAudioServices;
+	private Semaphore mStartSemaphore; //counter to limit the number of simultaneous text-to-speech steps
+	private AudioBufferTracker mAudioBufferTracker;
 
 	@Override
 	public XProcStep newStep(XProcRuntime runtime, XAtomicStep step) {
+		if (mStartSemaphore == null) {
+			mStartSemaphore = new Semaphore(3, true);
+		}
+
+		if (mAudioBufferTracker == null) {
+			mAudioBufferTracker = new AudioBufferTracker();
+		}
+
 		boolean error = false;
-		AudioEncoder encoder = null;
 		if (mRegistry == null) {
 			runtime.error(new RuntimeException("Registry of TTS engines is missing."));
 			error = true;
@@ -25,13 +36,6 @@ public class SynthesizeProvider implements XProcStepProvider {
 		if (mAudioServices == null) {
 			runtime.error(new RuntimeException("Registry of audio encoders is missing."));
 			error = true;
-		} else {
-			// TODO: select an AudioService according to the user's preferences
-			encoder = mAudioServices.getEncoder();
-			if (encoder == null) {
-				runtime.error(new RuntimeException("No audio encoder found."));
-				error = true;
-			}
 		}
 
 		if (error)
@@ -40,7 +44,8 @@ public class SynthesizeProvider implements XProcStepProvider {
 		//warning: a reference is kept on the audio encoder during all the synthesizing process,
 		//even if it is unregistered.
 
-		return new SynthesizeStep(runtime, step, mRegistry, encoder);
+		return new SynthesizeStep(runtime, step, mRegistry, mAudioServices, mStartSemaphore,
+		        mAudioBufferTracker);
 	}
 
 	protected void setTTSRegistry(TTSRegistry registry) {

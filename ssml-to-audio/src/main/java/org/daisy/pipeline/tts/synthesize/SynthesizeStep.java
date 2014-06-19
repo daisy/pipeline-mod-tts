@@ -2,9 +2,8 @@ package org.daisy.pipeline.tts.synthesize;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
@@ -12,10 +11,12 @@ import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmSequenceIterator;
 
-import org.daisy.pipeline.audio.AudioEncoder;
+import org.daisy.pipeline.audio.AudioServices;
+import org.daisy.pipeline.tts.AudioBufferTracker;
 import org.daisy.pipeline.tts.TTSRegistry;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 
+import com.google.common.collect.Iterables;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
@@ -29,11 +30,13 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 
 	private ReadablePipe source = null;
 	private WritablePipe result = null;
-	private SynthesisWorkerPool mWorkerPool;
 	private XProcRuntime mRuntime;
 	private TTSRegistry mTTSRegistry;
 	private Random mRandGenerator;
 	private String mTempDirectory;
+	private AudioServices mAudioServices;
+	private Semaphore mStartSemaphore;
+	private AudioBufferTracker mAudioBufferTracker;
 
 	private static String convertSecondToString(double seconds) {
 		int iseconds = (int) (Math.floor(seconds));
@@ -52,12 +55,14 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	}
 
 	public SynthesizeStep(XProcRuntime runtime, XAtomicStep step, TTSRegistry ttsRegistry,
-	        AudioEncoder encoder) {
+	        AudioServices audioServices, Semaphore startSemaphore,
+	        AudioBufferTracker audioBufferTracker) {
 		super(runtime, step);
+		mStartSemaphore = startSemaphore;
+		mAudioBufferTracker = audioBufferTracker;
+		mAudioServices = audioServices;
 		mRuntime = runtime;
 		mTTSRegistry = ttsRegistry;
-		int nrThreads = Integer.valueOf(System.getProperty("tts.threads", "12"));
-		mWorkerPool = new SynthesisWorkerPool(nrThreads, ttsRegistry, encoder, this);
 		mRandGenerator = new Random();
 		mTempDirectory = System.getProperty("audio.tmpdir");
 		if (mTempDirectory == null)
@@ -96,13 +101,13 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		result.resetWriter();
 	}
 
-	public void traverse(XdmNode node) throws SynthesisException {
+	public void traverse(XdmNode node, SSMLtoAudio pool) throws SynthesisException {
 		if (SentenceTag.equals(node.getNodeName())) {
-			mWorkerPool.pushSSML(node);
+			pool.dispatchSSML(node);
 		} else {
 			XdmSequenceIterator iter = node.axisIterator(Axis.CHILD);
 			while (iter.hasNext()) {
-				traverse((XdmNode) iter.next());
+				traverse((XdmNode) iter.next(), pool);
 			}
 		}
 	}
@@ -110,58 +115,74 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	public void run() throws SaxonApiException {
 		super.run();
 
-		List<SoundFragment> allSoundFragments;
-
-		synchronized (mTTSRegistry) {
-			//only one synthesis step at a time! the synthesis step is
-			//already multithreaded anyway.
-
-			mTTSRegistry.openSynthesizingContext();
-
-			File audioOutputDir = null;
-			do {
-				String audioDir = mTempDirectory + "/";
-				for (int k = 0; k < 2; ++k)
-					audioDir += Long.toString(mRandGenerator.nextLong(), 32);
-				audioOutputDir = new File(audioDir);
-			} while (audioOutputDir.exists());
-			audioOutputDir.mkdir();
-			mWorkerPool.initialize(audioOutputDir);
-
-			try {
-				while (source.moreDocuments()) {
-					traverse(getFirstChild(source.read()));
-					mWorkerPool.endSection();
-				}
-				// run the synthesis/encoding threads
-				allSoundFragments = Collections
-				        .synchronizedList(new LinkedList<SoundFragment>());
-				mWorkerPool.synthesizeAndWait(allSoundFragments);
-			} catch (SynthesisException e) {
-				mRuntime.error(e);
-				return;
-			} finally {
-				mTTSRegistry.closeSynthesizingContext();
-			}
+		try {
+			mStartSemaphore.acquire();
+		} catch (InterruptedException e) {
+			mRuntime.error(e);
+			return;
 		}
 
-		printInfo("number of sound fragments: " + allSoundFragments.size());
+		mTTSRegistry.openSynthesizingContext();
+
+		File audioOutputDir = null;
+		do {
+			String audioDir = mTempDirectory + "/";
+			for (int k = 0; k < 2; ++k)
+				audioDir += Long.toString(mRandGenerator.nextLong(), 32);
+			audioOutputDir = new File(audioDir);
+		} while (audioOutputDir.exists());
+		audioOutputDir.mkdir();
+
+		SSMLtoAudio ssmltoaudio = new SSMLtoAudio(audioOutputDir, mTTSRegistry, this,
+		        mAudioBufferTracker);
+
+		Iterable<SoundFileLink> soundFragments = Collections.EMPTY_LIST;
+		try {
+			while (source.moreDocuments()) {
+				traverse(getFirstChild(source.read()), ssmltoaudio);
+				ssmltoaudio.endSection();
+			}
+			Iterable<SoundFileLink> newfrags = ssmltoaudio.blockingRun(mAudioServices);
+			soundFragments = Iterables.concat(soundFragments, newfrags);
+		} catch (SynthesisException e) {
+			mRuntime.error(e);
+			return;
+		} catch (InterruptedException e) {
+			mRuntime.error(e);
+			return;
+		} finally {
+			mTTSRegistry.closeSynthesizingContext();
+			mStartSemaphore.release();
+		}
 
 		TreeWriter tw = new TreeWriter(runtime);
 		tw.startDocument(runtime.getStaticBaseURI());
 		tw.addStartElement(OutputRootTag);
 
-		for (SoundFragment sf : allSoundFragments) {
-			tw.addStartElement(ClipTag);
-			tw.addAttribute(Audio_attr_id, sf.id);
-			tw.addAttribute(Audio_attr_clipBegin, convertSecondToString(sf.clipBegin));
-			tw.addAttribute(Audio_attr_clipEnd, convertSecondToString(sf.clipEnd));
-			tw.addAttribute(Audio_attr_src, sf.soundFileURI);
-			tw.addEndElement();
+		int num = 0;
+		for (SoundFileLink sf : soundFragments) {
+			String soundFileURI = sf.soundFileURIHolder.toString();
+			if (!soundFileURI.isEmpty()) {
+				tw.addStartElement(ClipTag);
+				tw.addAttribute(Audio_attr_id, sf.xmlid);
+				tw.addAttribute(Audio_attr_clipBegin, convertSecondToString(sf.clipBegin));
+				tw.addAttribute(Audio_attr_clipEnd, convertSecondToString(sf.clipEnd));
+				tw.addAttribute(Audio_attr_src, soundFileURI);
+				tw.addEndElement();
+				++num;
+			} else {
+				printInfo("error: text with id=" + sf.xmlid
+				        + " has not been fully synthesized or encoded.");
+			}
 		}
-
 		tw.addEndElement();
 		tw.endDocument();
+
+		printInfo("number of synthesized sound fragments: " + num);
+		printInfo("unreleased bytes used for audio encoding: "
+		        + mAudioBufferTracker.getUnreleasedEncondingMem());
+		printInfo("unreleased bytes used for TTS: "
+		        + mAudioBufferTracker.getUnreleasedTTSMem());
 
 		result.write(tw.getResult());
 	}

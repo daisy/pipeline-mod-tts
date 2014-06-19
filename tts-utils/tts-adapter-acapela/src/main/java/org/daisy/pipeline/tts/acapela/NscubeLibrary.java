@@ -16,7 +16,8 @@ import com.sun.jna.ptr.NativeLongByReference;
 import com.sun.jna.ptr.PointerByReference;
 
 public interface NscubeLibrary extends Library {
-	public static final String JNA_LIBRARY_NAME = "nscube";
+	public static String JNA_LIBRARY_NAME = NsCubeLoader.GetLibName();
+
 	public static final NativeLibrary JNA_NATIVE_LIB = NativeLibrary
 	        .getInstance(NscubeLibrary.JNA_LIBRARY_NAME);
 	public static final NscubeLibrary INSTANCE = (NscubeLibrary) Native.loadLibrary(

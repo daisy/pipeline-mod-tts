@@ -24,28 +24,25 @@
       <groupId>org.daisy.pipeline.modules</groupId>
       <artifactId>tts-common</artifactId>
     </dependency>
-
-    <dependency>
-      <groupId>org.daisy.pipeline.modules</groupId>
-      <artifactId>audio-common</artifactId>
-    </dependency>
-
     <!-- needed to use com.xmlcalabash.library.DefaultStep ... -->
     <dependency>
       <groupId>org.daisy.libs</groupId>
       <artifactId>com.xmlcalabash</artifactId>
     </dependency>
-
     <!-- needed to use org.daisy.common.xproc.calabash.XProcStepProvider -->
     <dependency>
       <groupId>org.daisy.pipeline</groupId>
       <artifactId>calabash-adapter</artifactId>
     </dependency>
-
     <dependency>
       <groupId>net.sf.saxon</groupId>
       <artifactId>Saxon-HE</artifactId>
     </dependency>
+    <dependency>
+     <groupId>junit</groupId>
+     <artifactId>junit</artifactId>
+     <scope>test</scope>
+   </dependency>
   </dependencies>
 
   <build>

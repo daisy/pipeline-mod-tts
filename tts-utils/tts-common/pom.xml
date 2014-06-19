@@ -63,6 +63,12 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
 
+    <!--  For the AudioBuffer -->
+    <dependency>
+      <groupId>org.daisy.pipeline.modules</groupId>
+      <artifactId>audio-common</artifactId>
+    </dependency>
+
   </dependencies>
 
 </project>

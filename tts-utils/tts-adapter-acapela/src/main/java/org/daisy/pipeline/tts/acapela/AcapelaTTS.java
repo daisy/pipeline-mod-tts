@@ -3,6 +3,7 @@ package org.daisy.pipeline.tts.acapela;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -14,14 +15,19 @@ import javax.sound.sampled.AudioFormat;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 
+import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AbstractTTSService;
+import org.daisy.pipeline.tts.AudioBufferAllocator;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.BasicSSMLAdapter;
 import org.daisy.pipeline.tts.LoadBalancer.Host;
 import org.daisy.pipeline.tts.RoundRobinLoadBalancer;
 import org.daisy.pipeline.tts.SSMLAdapter;
 import org.daisy.pipeline.tts.SSMLUtil;
-import org.daisy.pipeline.tts.SoundUtil;
+import org.daisy.pipeline.tts.StraightBufferAllocator;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSServiceUtil;
+import org.daisy.pipeline.tts.TestableTTSService;
 import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.acapela.NscubeLibrary.PNSC_FNSPEECH_DATA;
 import org.daisy.pipeline.tts.acapela.NscubeLibrary.PNSC_FNSPEECH_EVENT;
@@ -39,21 +45,26 @@ import com.sun.jna.ptr.PointerByReference;
  * (it) • Brazilian (br) • German (de). For other languages, we can adapt the
  * SSML to the tag language (/mark{...}, /voice{...}) etc.
  */
-public class AcapelaTTS extends AbstractTTSService {
+public class AcapelaTTS extends AbstractTTSService implements TestableTTSService {
 
 	private AudioFormat mAudioFormat;
 	private RoundRobinLoadBalancer mLoadBalancer;
+	private int mMsPerWord;
+	private int mReserved = Integer.valueOf(System
+	        .getProperty("acapela.threads.reserved", "3"));
 
 	public static class ThreadResources extends TTSResource {
 		Pointer dispatcher;
 		NativeLong channelId;
 		PointerByReference channelLock;
 		Pointer server;
-		RawAudioBuffer buff;
+		List<AudioBuffer> chunks;
 		List<Entry<String, Integer>> marks;
 		NSC_EXEC_DATA execData;
 		List<String> idsToMark; //we don't use directly the marks' names because they may contain non-alphanumeric characters
 		SSMLAdapter ssmlAdapter; //we use a different adapter for every thread because IdstoMark must not be shared.
+		AudioBufferAllocator audioBufferAllocator;
+		int outOfMemBytes;
 
 		public ThreadResources() {
 			idsToMark = new ArrayList<String>();
@@ -96,12 +107,16 @@ public class AcapelaTTS extends AbstractTTSService {
 				@Override
 				public int apply(Pointer pData, int cbDataSize, NSC_SOUND_DATA pSoundData,
 				        Pointer pAppInstanceData) {
-					if (cbDataSize + buff.offsetInOutput > buff.output.length)
-						SoundUtil.realloc(buff, cbDataSize);
 
-					System.arraycopy(pData.getByteArray(0, cbDataSize), 0, buff.output,
-					        buff.offsetInOutput, cbDataSize);
-					buff.offsetInOutput += cbDataSize;
+					if (outOfMemBytes == 0) {
+						try {
+							AudioBuffer b = audioBufferAllocator.allocateBuffer(cbDataSize);
+							pData.read(0, b.data, 0, cbDataSize);
+							chunks.add(b);
+						} catch (MemoryException e) {
+							outOfMemBytes = cbDataSize;
+						}
+					}
 
 					return cbDataSize;
 				}
@@ -120,13 +135,13 @@ public class AcapelaTTS extends AbstractTTSService {
 						marks.add(new AbstractMap.SimpleEntry<String, Integer>(bookmarkName,
 						        bookmark.uiByteCount));
 					} else if (nEventID == NscubeLibrary.NSC_EVID_ENUM.NSC_EVID_BOOKMARK_EXT) {
-						// This should not happen because the marks are numeric.
+						// In regular cases, this should not happen because the marks are numeric.
+						// It is only used for running the tests for which the SSML serialization
+						// is not enable.
 						NSC_EVENT_DATA_BookmarkExt bookmark = new NSC_EVENT_DATA_BookmarkExt(
 						        pEventData.getPointer());
 						bookmark.read();
-
-						String bookmarkName = idsToMark.get(Integer.valueOf(new String(
-						        bookmark.szVal).trim()));
+						String bookmarkName = new String(bookmark.szVal).trim();
 						marks.add(new AbstractMap.SimpleEntry<String, Integer>(bookmarkName,
 						        bookmark.uiByteCount));
 					}
@@ -138,7 +153,9 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public void onBeforeOneExecution() throws SynthesisException {
+	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
+		mMsPerWord = Integer.valueOf(System.getProperty("acapela.expected.speed", "300"));
+
 		mLoadBalancer = new RoundRobinLoadBalancer(System.getProperty("acapela.servers",
 		        "localhost:0"), this); //'0' means that the port is left to Nscube's choice
 
@@ -150,21 +167,19 @@ public class AcapelaTTS extends AbstractTTSService {
 		int workingHosts = 0;
 		List<Host> nonWorking = new ArrayList<Host>();
 		for (Host h : mLoadBalancer.getAllHosts()) {
-			TTSResource resources = null;
-			RawAudioBuffer audioBuffer = new RawAudioBuffer(1);
-			boolean error = false;
+			TTSResource r = null;
+			Throwable t = null;
 			try {
-				resources = allocateThreadResources();
-				synthesize("hello world", audioBuffer, (ThreadResources) resources, null);
-			} catch (Throwable t) {
-				lastError = t;
-			} finally {
-				if (resources != null)
-					releaseThreadResources(resources);
+				r = allocateThreadResources(h);
+			} catch (SynthesisException | InterruptedException e) {
+				t = e;
 			}
-			if (error || audioBuffer.offsetInOutput > 2500) {
+			if (t == null)
+				t = TTSServiceUtil.testTTS(this, "hello world", r);
+			if (t == null) {
 				++workingHosts;
 			} else {
+				lastError = t;
 				nonWorking.add(h);
 			}
 		}
@@ -175,11 +190,13 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public TTSResource allocateThreadResources() throws SynthesisException {
+	public TTSResource allocateThreadResources() throws SynthesisException,
+	        InterruptedException {
 		return allocateThreadResources(mLoadBalancer.selectHost());
 	}
 
-	private ThreadResources allocateThreadResources(Host h) throws SynthesisException {
+	private ThreadResources allocateThreadResources(Host h) throws SynthesisException,
+	        InterruptedException {
 		NscubeLibrary lib = NscubeLibrary.INSTANCE;
 		ThreadResources th = new ThreadResources();
 
@@ -273,7 +290,7 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public void releaseThreadResources(Object resources) throws SynthesisException {
+	public void releaseThreadResources(TTSResource resources) throws SynthesisException {
 		ThreadResources th = (ThreadResources) resources;
 		if (th.channelId != null && th.server != null)
 			NscubeLibrary.INSTANCE.nscCloseChannel(th.server, th.channelId);
@@ -285,9 +302,10 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public void synthesize(XdmNode ssml, Voice voice, RawAudioBuffer audioBuffer,
-	        Object threadResources, List<Entry<String, Integer>> marks, boolean retry)
-	        throws SynthesisException {
+	public Collection<AudioBuffer> synthesize(XdmNode ssml, Voice voice,
+	        TTSResource threadResources, List<Entry<String, Integer>> marks,
+	        AudioBufferAllocator bufferAllocator, boolean retry) throws SynthesisException,
+	        InterruptedException, MemoryException {
 
 		ThreadResources th = (ThreadResources) threadResources;
 		if (retry) {
@@ -298,28 +316,31 @@ public class AcapelaTTS extends AbstractTTSService {
 			th.channelId = newth.channelId;
 		}
 
-		th.idsToMark.clear();
-
 		//note: the Acapela's markup for SSML interpretation is active by default.
-		synthesize(SSMLUtil.toString(ssml, voice.name, th.ssmlAdapter, endingMark()),
-		        audioBuffer, th, marks);
+		th.idsToMark.clear();
+		return speak(SSMLUtil.toString(ssml, voice.name, th.ssmlAdapter, endingMark()), th,
+		        marks, bufferAllocator);
 	}
 
-	public void synthesize(String ssml, RawAudioBuffer audioBuffer, ThreadResources th,
-	        List<Entry<String, Integer>> marks) throws SynthesisException {
-		th.buff = audioBuffer;
+	public Collection<AudioBuffer> speak(String ssml, TTSResource tr,
+	        List<Entry<String, Integer>> marks, AudioBufferAllocator bufferAllocator)
+	        throws SynthesisException, MemoryException {
+		ThreadResources th = (ThreadResources) tr;
+		th.chunks = new ArrayList<AudioBuffer>();
+		th.audioBufferAllocator = bufferAllocator;
 		th.marks = marks;
 		th.channelLock = new PointerByReference();
+		th.outOfMemBytes = 0;
 		NscubeLibrary lib = NscubeLibrary.INSTANCE;
 
 		int ret = lib.nscLockChannel(th.server, th.channelId, th.dispatcher, th.channelLock);
 		if (ret != NscubeLibrary.NSC_OK)
-			return;
+			return Collections.EMPTY_LIST; //TODO: proper error
 
 		ret = lib.nscAddTextUTF8(th.channelLock.getValue(), ssml, null);
 		if (ret != NscubeLibrary.NSC_OK) {
 			lib.nscUnlockChannel(th.channelLock.getValue());
-			return;
+			return Collections.EMPTY_LIST;
 		}
 
 		ret = lib.nscExecChannel(th.channelLock.getValue(), th.execData);
@@ -327,6 +348,12 @@ public class AcapelaTTS extends AbstractTTSService {
 		if (ret != NscubeLibrary.NSC_OK) {
 			throw new SynthesisException("nscExecChannel returned error code:" + ret);
 		}
+
+		if (th.outOfMemBytes > 0) {
+			throw new MemoryException(th.outOfMemBytes);
+		}
+
+		return th.chunks;
 	}
 
 	@Override
@@ -342,7 +369,8 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public Collection<Voice> getAvailableVoices() throws SynthesisException {
+	public Collection<Voice> getAvailableVoices() throws SynthesisException,
+	        InterruptedException {
 		NscubeLibrary lib = NscubeLibrary.INSTANCE;
 		Pointer server = createServerContext(mLoadBalancer.getMaster());
 
@@ -350,9 +378,9 @@ public class AcapelaTTS extends AbstractTTSService {
 
 		//Only the voices with the pre-selected sample rate are kept to prevent the server
 		//from producing data using another sample rate without any notification.
-		//If there are two versions with the same speaker (for example 8kHz and 22Khz) then
+		//If there are two versions with the same speaker (for example 8kHz and 22kHz) then
 		//the server should choose the voice whose sample rate matches the one provided to
-		//the channel initialization. Such situation has not been tested though.
+		//the channel initialization. Such a situation has not been tested though.
 		PointerByReference voiceEnumerator = new PointerByReference();
 		NSC_FINDVOICE_DATA voiceData = new NSC_FINDVOICE_DATA();
 		int ret = lib.nscFindFirstVoice(server, (String) null, (int) mAudioFormat
@@ -375,7 +403,7 @@ public class AcapelaTTS extends AbstractTTSService {
 
 	@Override
 	public int getOverallPriority() {
-		return Integer.valueOf(System.getProperty("att.priority", "10"));
+		return Integer.valueOf(System.getProperty("acapela.priority", "13"));
 	}
 
 	@Override
@@ -399,8 +427,15 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public boolean resourcesReleasedASAP() {
-		return false;
+	public int reservedThreadNum() {
+		//there is no point to use a lot of threads since the server's total output rate
+		//is constant: it will be divided by the number of channels (one thread per channel).
+		return mReserved;
+	}
+
+	@Override
+	public int expectedMillisecPerWord() {
+		return mMsPerWord;
 	}
 
 	//// TODO: use the new unicode class in Java7 or move this somewhere in framework/common
@@ -419,5 +454,12 @@ public class AcapelaTTS extends AbstractTTSService {
 		spaces += new Character((char) 0x2000) + "-" + new Character((char) 0x200A);
 		SpaceRegex = Pattern.compile("[" + spaces + "]+", Pattern.DOTALL
 		        | Pattern.UNICODE_CASE | Pattern.MULTILINE);
+	}
+
+	@Override
+	public Collection<AudioBuffer> testSpeak(String ssml, Voice v, TTSResource th,
+	        List<Entry<String, Integer>> marks) throws SynthesisException,
+	        InterruptedException, MemoryException {
+		return speak(ssml, th, marks, new StraightBufferAllocator());
 	}
 }

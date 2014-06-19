@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,11 +37,13 @@ public class TTSRegistry {
 	/// and the synthesis step.
 	/// ==========================================================================================
 
-	//List of active service
+	//List of active services
 	private List<TTSService> mServices = new CopyOnWriteArrayList<TTSService>();
 
-	//List of services used by the current running step (some of them may not be active anymore)
+	//List of services used by the current running steps (some of them may not be active anymore)
 	private Map<TTSService, List<TTSResource>> mTTSResources = new HashMap<TTSService, List<TTSResource>>();
+
+	private int mContextOpened = 0;
 
 	/**
 	 * Service component callback
@@ -69,8 +72,11 @@ public class TTSRegistry {
 					try {
 						tts.releaseThreadResources(resource);
 					} catch (SynthesisException e) {
-						ServerLogger.error("error while releasing resource of " + tts.getName()
-						        + ": " + getStack(e));
+						ServerLogger.warn("error while releasing resource of "
+						        + TTSServiceUtil.displayName(tts) + ": " + getStack(e));
+					} catch (InterruptedException e) {
+						ServerLogger.warn("timeout while releasing resource of "
+						        + TTSServiceUtil.displayName(tts));
 					}
 					resource.released = true;
 				}
@@ -83,56 +89,94 @@ public class TTSRegistry {
 	/**
 	 * Initialize the TTS services. Combine voices and TTS-services to build
 	 * maps that allow the user to quickly access to the best voices or the best
-	 * services for a given language/gender.
+	 * services for a given vendor/language/gender.
 	 */
 	public void openSynthesizingContext() {
+		synchronized (this) {
+			mContextOpened++;
+			if (mContextOpened > 1)
+				return; //context already opened before
+		}
+
 		synchronized (mTTSResources) {
 			mTTSResources.clear();
 		}
+		TTSTimeout timeout = new TTSTimeout();
 		for (TTSService tts : mServices) {
 			String fullname = TTSServiceUtil.displayName(tts);
 			try {
+				timeout.enableForCurrentThread(3);
 				tts.onBeforeOneExecution();
 				synchronized (mTTSResources) {
 					mTTSResources.put(tts, new ArrayList<TTSResource>());
 				}
 				ServerLogger.info(fullname + " successfully initialized");
+			} catch (InterruptedException e) {
+				ServerLogger.error("timeout while initializing " + fullname);
 			} catch (Throwable t) {
-				ServerLogger.info(fullname + " could not be initialized");
+				ServerLogger.error(fullname + " could not be initialized");
 				ServerLogger.debug(fullname + " init error: " + getStack(t));
+			} finally {
+				timeout.disable();
 			}
-
 		}
+		timeout.close();
 
 		ServerLogger.info("number of working TTS services: " + mTTSResources.size() + "/"
 		        + mServices.size());
 
+		mContext = new TTSContext();
+
 		//Create a map of the best services for each available voice, given that two different
 		//services can serve the same voice. 
-		mBestServices = new HashMap<Voice, TTSService>();
+		timeout = new TTSTimeout();
 		for (TTSService tts : mTTSResources.keySet()) { //no possible concurrent write
 			try {
+				timeout.enableForCurrentThread(3);
 				Collection<Voice> voices = tts.getAvailableVoices();
 				if (voices != null)
 					for (Voice v : voices) {
-						TTSService competitor = mBestServices.get(v);
+						TTSService competitor = mContext.bestServices.get(v);
 						if (competitor == null
 						        || competitor.getOverallPriority() < tts.getOverallPriority()) {
-							mBestServices.put(v, tts);
+							mContext.bestServices.put(v, tts);
 						}
 					}
 			} catch (SynthesisException e) {
-				//could not get the available voices:
-				//voices of this TTS Service are ignored
+				ServerLogger.error("error while retrieving the voices of "
+				        + TTSServiceUtil.displayName(tts));
+				ServerLogger.debug(TTSServiceUtil.displayName(tts)
+				        + " getAvailableVoices error: " + getStack(e));
+			} catch (InterruptedException e) {
+				ServerLogger.error("timeout while retrieving the voices of "
+				        + TTSServiceUtil.displayName(tts));
+			} finally {
+				timeout.disable();
+			}
+		}
+		timeout.close();
+
+		//Create a map of the best voices for each language
+		for (VoiceInfo voiceInfo : VoicePriorities) {
+			if (!mContext.bestVoices.containsKey(voiceInfo.language)
+			        && mContext.bestServices.containsKey(voiceInfo.voice)) {
+				mContext.bestVoices.put(voiceInfo.language, voiceInfo.voice);
 			}
 		}
 
-		//Create map of the best voices for each language
-		mBestVoices = new HashMap<Locale, Voice>();
-		for (VoiceInfo voiceInfo : VoicePriorities) {
-			if (!mBestVoices.containsKey(voiceInfo.language)
-			        && mBestServices.containsKey(voiceInfo.voice)) {
-				mBestVoices.put(voiceInfo.language, voiceInfo.voice);
+		//Create a map of the best fallback voices for each language
+		for (Map.Entry<Locale, Voice> e : mContext.bestVoices.entrySet()) {
+			Locale lang = e.getKey();
+			Voice bestVoice = e.getValue();
+			VoiceInfo vi = new VoiceInfo(bestVoice, lang);
+			Iterator<VoiceInfo> it = VoicePriorities.listIterator(VoicePriorities.indexOf(vi));
+			while (it.hasNext()) {
+				vi = it.next();
+				if (vi.language.equals(lang) && !vi.voice.vendor.equals(bestVoice.vendor)
+				        && mContext.bestServices.containsKey(vi.voice)) {
+					mContext.secondVoices.put(bestVoice, vi.voice);
+					break;
+				}
 			}
 		}
 
@@ -140,45 +184,33 @@ public class TTSRegistry {
 		//for (vendor, gender, language)
 
 		//Create a map of the best voices when only the vendor's name and languages are provided
-		mBestVendorVoices = new HashMap<Map.Entry<String, Locale>, Voice>();
 		for (VoiceInfo voiceInfo : VoicePriorities) {
 			Entry<String, Locale> entry = new AbstractMap.SimpleEntry<String, Locale>(
 			        voiceInfo.voice.vendor, voiceInfo.language);
-			if (!mBestVendorVoices.containsKey(entry)
-			        && mBestServices.containsKey(voiceInfo.voice)) {
-				mBestVendorVoices.put(entry, voiceInfo.voice);
+			if (!mContext.mBestVendorVoices.containsKey(entry)
+			        && mContext.bestServices.containsKey(voiceInfo.voice)) {
+				mContext.mBestVendorVoices.put(entry, voiceInfo.voice);
 			}
 		}
 
 		//log the available voices
 		StringBuilder sb = new StringBuilder("Available voices:");
-		for (Entry<Voice, TTSService> e : mBestServices.entrySet()) {
+		for (Entry<Voice, TTSService> e : mContext.bestServices.entrySet()) {
 			sb.append("\n* " + e.getKey() + " by " + TTSServiceUtil.displayName(e.getValue()));
 		}
 		ServerLogger.info(sb.toString());
 		sb = new StringBuilder("Fallback voices:");
-		for (Entry<Locale, Voice> e : mBestVoices.entrySet()) {
+		for (Entry<Locale, Voice> e : mContext.bestVoices.entrySet()) {
 			sb.append("\n* " + e.getKey() + ": " + e.getValue());
 		}
 		ServerLogger.info(sb.toString());
 	}
 
-	public void closeSynthesizingContext() {
-		for (Entry<TTSService, List<TTSResource>> resources : mTTSResources.entrySet()) { //no possible concurrent write
-			for (TTSResource resource : resources.getValue()) {
-				synchronized (resource) {
-					if (!resource.released) {
-						try {
-							resources.getKey().releaseThreadResources(resource);
-						} catch (SynthesisException e) {
-							ServerLogger.error("error while releasing resource of "
-							        + resources.getKey().getName() + ": " + getStack(e));
-						}
-						resource.released = true;
-					}
-				}
-
-			}
+	public synchronized void closeSynthesizingContext() {
+		synchronized (this) {
+			mContextOpened--;
+			if (mContextOpened > 0)
+				return; //context still used by other steps
 		}
 
 		for (TTSService tts : mTTSResources.keySet()) { //no possible concurrent write
@@ -188,14 +220,15 @@ public class TTSRegistry {
 		synchronized (mTTSResources) {
 			mTTSResources.clear();
 		}
-		mBestVendorVoices = null;
-		mBestServices = null;
-		mBestVoices = null;
+		mContext = null;
 	}
 
-	public synchronized TTSResource allocateResourceFor(TTSService tts)
-	        throws SynthesisException {
-		List<TTSResource> resources = mTTSResources.get(tts); //no possible concurrent write
+	public TTSResource allocateResourceFor(TTSService tts) throws SynthesisException,
+	        InterruptedException {
+		List<TTSResource> resources = null;
+		synchronized (mTTSResources) {
+			resources = mTTSResources.get(tts);
+		}
 
 		if (resources == null)
 			return null; //the OSGi component has been stopped
@@ -213,9 +246,14 @@ public class TTSRegistry {
 	/// They are called after openSynthesizingContext() and before closeSynthesizingContext().
 	/// ================================================================================
 
-	private Map<Map.Entry<String, Locale>, Voice> mBestVendorVoices;
-	private Map<Voice, TTSService> mBestServices;
-	private Map<Locale, Voice> mBestVoices;
+	static private class TTSContext {
+		private Map<Map.Entry<String, Locale>, Voice> mBestVendorVoices = new HashMap<Map.Entry<String, Locale>, Voice>();
+		private Map<Voice, TTSService> bestServices = new HashMap<Voice, TTSService>();
+		private Map<Locale, Voice> bestVoices = new HashMap<Locale, Voice>();
+		private Map<Voice, Voice> secondVoices = new HashMap<Voice, Voice>();
+	};
+
+	private TTSContext mContext = null;
 	private static List<VoiceInfo> VoicePriorities;
 
 	/**
@@ -234,7 +272,7 @@ public class TTSRegistry {
 		if (voiceVendor != null && !voiceVendor.isEmpty() && voiceName != null
 		        && !voiceName.isEmpty()) {
 			Voice preferredVoice = new Voice(voiceVendor, voiceName);
-			if (mBestServices.containsKey(preferredVoice)) {
+			if (mContext.bestServices.containsKey(preferredVoice)) {
 				return preferredVoice;
 			}
 		}
@@ -249,22 +287,26 @@ public class TTSRegistry {
 		if (voiceVendor != null && !voiceVendor.isEmpty()) {
 			Entry<String, Locale> entry = new AbstractMap.SimpleEntry<String, Locale>(
 			        voiceVendor, loc);
-			result = mBestVendorVoices.get(entry);
+			result = mContext.mBestVendorVoices.get(entry);
 			if (result != null)
 				return result;
 			//try with a more generic voice
 			if (!loc.equals(shortLoc)) {
 				entry.setValue(shortLoc);
-				result = mBestVendorVoices.get(entry);
+				result = mContext.mBestVendorVoices.get(entry);
 				if (result != null)
 					return result;
 			}
 		}
 
-		result = mBestVoices.get(loc);
+		result = mContext.bestVoices.get(loc);
 		if (result != null)
 			return result;
-		return mBestVoices.get(shortLoc);
+		return mContext.bestVoices.get(shortLoc);
+	}
+
+	public Voice findSecondaryVoice(Voice v) {
+		return mContext.secondVoices.get(v);
 	}
 
 	/**
@@ -273,7 +315,7 @@ public class TTSRegistry {
 	 *         which is no longer enable.
 	 */
 	public TTSService getTTS(Voice voice) {
-		return mBestServices.get(voice);
+		return mContext.bestServices.get(voice);
 	}
 
 	private static String getStack(Throwable t) {
@@ -296,6 +338,8 @@ public class TTSRegistry {
 		final int ATT8Priority = 7;
 		final int AcapelaPriority = 12;
 		final int OSXSpeechPriority = 5;
+
+		//TODO: move this array to an external XML file (ideally a file editable by users).
 
 		VoiceInfo[] info = {
 		        //eSpeak:
@@ -385,8 +429,8 @@ public class TTSRegistry {
 		        new VoiceInfo(acapela, "alice", "fr", AcapelaPriority),
 		        new VoiceInfo(acapela, "bruno", "fr", AcapelaPriority),
 		        // OS X
-		        new VoiceInfo(osx,"Alex","en-us",OSXSpeechPriority),
-		        new VoiceInfo(osx,"Thomas","fr-fr",OSXSpeechPriority)
+		        new VoiceInfo(osx, "Alex", "en-us", OSXSpeechPriority),
+		        new VoiceInfo(osx, "Thomas", "fr-fr", OSXSpeechPriority)
 
 		};
 		Set<VoiceInfo> priorities = new HashSet<VoiceInfo>(Arrays.asList(info));

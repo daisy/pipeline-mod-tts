@@ -21,9 +21,14 @@ import javax.sound.sampled.AudioSystem;
 import net.sf.saxon.s9api.QName;
 
 import org.daisy.common.shell.BinaryFinder;
+import org.daisy.pipeline.audio.AudioBuffer;
+import org.daisy.pipeline.tts.AudioBufferAllocator;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.BasicSSMLAdapter;
 import org.daisy.pipeline.tts.MarkFreeTTSService;
 import org.daisy.pipeline.tts.SSMLAdapter;
+import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.Voice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +52,7 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 	private String mEspeakPath;
 	private final static int MIN_CHUNK_SIZE = 2048;
 
-	public void onBeforeOneExecution() throws SynthesisException {
+	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
 		final String property = "espeak.path";
 		mEspeakPath = System.getProperty(property);
 		if (mEspeakPath == null) {
@@ -93,19 +98,11 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 
 		//Test the synthesizer so that the service won't be active if it fails.
 		//It sets mAudioFormat too.
-		List<RawAudioBuffer> li = new ArrayList<RawAudioBuffer>();
 		mAudioFormat = null;
-		Object r = allocateThreadResources();
-		try {
-			synthesize(mSSMLAdapter.getHeader(null) + "test" + mSSMLAdapter.getFooter(), null,
-			        r, li);
-		} catch (InterruptedException e) {
-			throw new SynthesisException(e);
-		} finally {
-			releaseThreadResources(r);
-		}
-		if (li.get(0).offsetInOutput <= 500) {
-			throw new SynthesisException("eSpeak did not output audio.");
+		Throwable t = TTSServiceUtil.testTTS(this, mSSMLAdapter.getHeader(null) + "test"
+		        + mSSMLAdapter.getFooter());
+		if (t != null) {
+			throw new SynthesisException(t);
 		}
 	}
 
@@ -139,7 +136,8 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 	}
 
 	@Override
-	public Collection<Voice> getAvailableVoices() throws SynthesisException {
+	public Collection<Voice> getAvailableVoices() throws SynthesisException,
+	        InterruptedException {
 		Collection<Voice> result;
 		InputStream is;
 		Process proc = null;
@@ -184,6 +182,11 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 				proc.waitFor();
 			}
 
+		} catch (InterruptedException e) {
+			if (proc != null) {
+				proc.destroy();
+			}
+			throw e;
 		} catch (Exception e) {
 			if (proc != null) {
 				proc.destroy();
@@ -200,8 +203,9 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 	}
 
 	@Override
-	public void synthesize(String ssml, Voice voice, Object threadResources,
-	        List<RawAudioBuffer> output) throws SynthesisException, InterruptedException {
+	public void synthesize(String ssml, Voice voice, TTSResource threadResources,
+	        List<AudioBuffer> output, AudioBufferAllocator bufferAllocator)
+	        throws SynthesisException, InterruptedException, MemoryException {
 		Process p = null;
 		try {
 			p = Runtime.getRuntime().exec(mCmd);
@@ -219,17 +223,23 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 				mAudioFormat = fi.getFormat();
 
 			while (true) {
-				RawAudioBuffer b = new RawAudioBuffer();
-				int toread = MIN_CHUNK_SIZE + fi.available();
-				b.output = new byte[toread];
-				b.offsetInOutput = fi.read(b.output, 0, toread);
-				if (b.offsetInOutput == -1)
+				AudioBuffer b = bufferAllocator
+				        .allocateBuffer(MIN_CHUNK_SIZE + fi.available());
+				int ret = fi.read(b.data, 0, b.size);
+				if (ret == -1) {
+					//note: perhaps it would be better to not call allocateBuffer()
+					//somewhere else in order to avoid this extra call:
+					bufferAllocator.releaseBuffer(b);
 					break;
+				}
+				b.size = ret;
 				output.add(b);
 			}
-
 			fi.close();
 			p.waitFor();
+		} catch (MemoryException e) {
+			p.destroy();
+			throw e;
 		} catch (InterruptedException e) {
 			if (p != null)
 				p.destroy();
@@ -243,4 +253,5 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 			        + ssml.substring(0, Math.min(ssml.length(), 100)) + "...", e);
 		}
 	}
+
 }

@@ -20,9 +20,14 @@ import javax.sound.sampled.AudioSystem;
 
 import net.sf.saxon.s9api.QName;
 
+import org.daisy.pipeline.audio.AudioBuffer;
+import org.daisy.pipeline.tts.AudioBufferAllocator;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.BasicSSMLAdapter;
 import org.daisy.pipeline.tts.MarkFreeTTSService;
 import org.daisy.pipeline.tts.SSMLAdapter;
+import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.Voice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +47,7 @@ public class OSXSpeechTTS extends MarkFreeTTSService {
 	private final static int MIN_CHUNK_SIZE = 2048;
 	private final static String SAY_PATH = "tts.osxspeech.path";
 
-	public void onBeforeOneExecution() throws SynthesisException {
+	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
 		mSayPath = System.getProperty(SAY_PATH, "/usr/bin/say");
 		mLogger.info("Will use 'say' binary: " + mSayPath);
 
@@ -61,21 +66,12 @@ public class OSXSpeechTTS extends MarkFreeTTSService {
 
 		// Test the synthesizer so that the service won't be active if it fails.
 		// It sets mAudioFormat too.
-		List<RawAudioBuffer> li = new ArrayList<RawAudioBuffer>();
 		mAudioFormat = null;
-		Object r = allocateThreadResources();
-		try {
-			synthesize(
-					mSSMLAdapter.getHeader(null) + "test"
-							+ mSSMLAdapter.getFooter(), null, r, li);
-		} catch (InterruptedException e) {
-			throw new SynthesisException(e);
-		} finally {
-			releaseThreadResources(r);
-		}
-		if (li.get(0).offsetInOutput <= 500) {
-			throw new SynthesisException(
-					"the 'say' command did not output audio.");
+		Throwable t = TTSServiceUtil.testTTS(this, mSSMLAdapter.getHeader(null) + "test"
+		        + mSSMLAdapter.getFooter());
+
+		if (t != null) {
+			throw new SynthesisException("the 'say' command did not output audio.", t);
 		}
 	}
 
@@ -107,8 +103,9 @@ public class OSXSpeechTTS extends MarkFreeTTSService {
 		Scanner scanner = null;
 		Matcher mr;
 		try {
-			proc = Runtime.getRuntime().exec(
-					new String[] { mSayPath, "-v", "?" });
+			proc = Runtime.getRuntime().exec(new String[]{
+			        mSayPath, "-v", "?"
+			});
 			is = proc.getInputStream();
 			mr = Pattern.compile("(.*?)\\s+\\w{2}_\\w{2}").matcher("");
 			scanner = new Scanner(is);
@@ -138,21 +135,20 @@ public class OSXSpeechTTS extends MarkFreeTTSService {
 	}
 
 	@Override
-	public void synthesize(String ssml, Voice voice, Object threadResources,
-			List<RawAudioBuffer> output) throws SynthesisException,
-			InterruptedException {
+	public void synthesize(String ssml, Voice voice, TTSResource threadResources,
+	        List<AudioBuffer> output, AudioBufferAllocator bufferAllocator)
+	        throws SynthesisException, InterruptedException, MemoryException {
 		Process p = null;
 		File waveOut = null;
 		try {
 
 			waveOut = File.createTempFile("pipeline", ".wav");
-			p = Runtime.getRuntime().exec(
-					new String[] { mSayPath, "--data-format=LEI16@22050", "-o",
-							waveOut.getAbsolutePath() });
+			p = Runtime.getRuntime().exec(new String[]{
+			        mSayPath, "--data-format=LEI16@22050", "-o", waveOut.getAbsolutePath()
+			});
 
 			// write the SSML
-			BufferedOutputStream out = new BufferedOutputStream(
-					(p.getOutputStream()));
+			BufferedOutputStream out = new BufferedOutputStream((p.getOutputStream()));
 			out.write(ssml.getBytes("utf-8"));
 			out.close();
 
@@ -160,24 +156,30 @@ public class OSXSpeechTTS extends MarkFreeTTSService {
 
 			// read the wave on the standard output
 
-			BufferedInputStream in = new BufferedInputStream(
-					new FileInputStream(waveOut));
+			BufferedInputStream in = new BufferedInputStream(new FileInputStream(waveOut));
 			AudioInputStream fi = AudioSystem.getAudioInputStream(in);
 
 			if (mAudioFormat == null)
 				mAudioFormat = fi.getFormat();
 
 			while (true) {
-				RawAudioBuffer b = new RawAudioBuffer();
-				int toread = MIN_CHUNK_SIZE + fi.available();
-				b.output = new byte[toread];
-				b.offsetInOutput = fi.read(b.output, 0, toread);
-				if (b.offsetInOutput == -1)
+				AudioBuffer b = bufferAllocator
+				        .allocateBuffer(MIN_CHUNK_SIZE + fi.available());
+				int ret = fi.read(b.data, 0, b.size);
+				if (ret == -1) {
+					//note: perhaps it would be better to not call allocateBuffer()
+					//somewhere else in order to avoid this extra call:
+					bufferAllocator.releaseBuffer(b);
 					break;
+				}
+				b.size = ret;
 				output.add(b);
 			}
 
 			fi.close();
+		} catch (MemoryException e) {
+			p.destroy();
+			throw e;
 		} catch (InterruptedException e) {
 			if (p != null)
 				p.destroy();
@@ -188,8 +190,7 @@ public class OSXSpeechTTS extends MarkFreeTTSService {
 			if (p != null)
 				p.destroy();
 			throw new SynthesisException(e.getMessage() + " text: "
-					+ ssml.substring(0, Math.min(ssml.length(), 100)) + "...",
-					e);
+			        + ssml.substring(0, Math.min(ssml.length(), 100)) + "...", e);
 		} finally {
 			if (waveOut != null)
 				waveOut.delete();
