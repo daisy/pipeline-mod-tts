@@ -138,7 +138,7 @@
 	    <p:output port="result" primary="true"/>
 	    <p:output port="sentence-ids">
 	      <p:inline>
-		<d:sentence-ids/>
+		<d:sentences/>
 	      </p:inline>
 	    </p:output>
 	    <p:identity/>
