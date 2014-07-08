@@ -38,5 +38,6 @@
     <module>tts-utils/tts-adapter-osx</module>
     <module>tts-utils/tts-adapter-sapinative</module>
     <module>zedai-to-ssml</module>
+    <module>zedai-tts</module>
   </modules>
 </project>
