@@ -1,6 +1,5 @@
 package org.daisy.pipeline.tts.espeak;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -42,10 +41,9 @@ public class EspeakTest {
 		ESpeakBinTTS service = new ESpeakBinTTS();
 		service.onBeforeOneExecution();
 
-		ArrayList<AudioBuffer> li = new ArrayList<AudioBuffer>();
-
 		TTSResource resource = service.allocateThreadResources();
-		service.synthesize("<s>this is a test</s>", null, resource, li, BufferAllocator);
+		Collection<AudioBuffer> li = service.synthesize("<s>this is a test</s>", null, null,
+		        resource, null, BufferAllocator, false);
 		service.releaseThreadResources(resource);
 
 		Assert.assertTrue(getSize(li) > 2000);
@@ -58,16 +56,15 @@ public class EspeakTest {
 		service.onBeforeOneExecution();
 		TTSResource resource = service.allocateThreadResources();
 
-		ArrayList<AudioBuffer> li = new ArrayList<AudioBuffer>();
-
 		Set<Integer> sizes = new HashSet<Integer>();
 		int totalVoices = 0;
 		Iterator<Voice> ite = service.getAvailableVoices().iterator();
 		while (ite.hasNext()) {
 			Voice v = ite.next();
-			li.clear();
-			service.synthesize("<s><voice name=\"" + v.name + "\">small test</voice></s>",
-			        null, resource, li, BufferAllocator);
+			Collection<AudioBuffer> li = service.synthesize("<s><voice name=\"" + v.name
+			        + "\">small test</voice></s>", null, null, resource, null,
+			        BufferAllocator, false);
+
 			sizes.add(getSize(li) / 4); //div 4 helps being more robust to tiny differences
 			totalVoices++;
 		}
@@ -85,11 +82,10 @@ public class EspeakTest {
 		ESpeakBinTTS service = new ESpeakBinTTS();
 		service.onBeforeOneExecution();
 
-		ArrayList<AudioBuffer> li = new ArrayList<AudioBuffer>();
-
 		TTSResource resource = service.allocateThreadResources();
-		service.synthesize("<s>𝄞𝄞𝄞𝄞 水水水水水 𝄞水𝄞水𝄞水𝄞水 test 国Ø家Ť标准 ĜæŘ ß ŒÞ ๕</s>", null,
-		        resource, li, BufferAllocator);
+		Collection<AudioBuffer> li = service.synthesize(
+		        "<s>𝄞𝄞𝄞𝄞 水水水水水 𝄞水𝄞水𝄞水𝄞水 test 国Ø家Ť标准 ĜæŘ ß ŒÞ ๕</s>", null, null,
+		        resource, null, BufferAllocator, false);
 		service.releaseThreadResources(resource);
 
 		Assert.assertTrue(getSize(li) > 2000);
@@ -106,7 +102,6 @@ public class EspeakTest {
 			final int j = i;
 			threads[i] = new Thread() {
 				public void run() {
-					ArrayList<AudioBuffer> li = new ArrayList<AudioBuffer>();
 					TTSResource resource = null;
 					try {
 						resource = service.allocateThreadResources();
@@ -114,11 +109,12 @@ public class EspeakTest {
 						return;
 					}
 
+					Collection<AudioBuffer> li = null;
 					for (int k = 0; k < 16; ++k) {
-						li.clear();
 						try {
-							service.synthesize("<s>small test</s>", null, resource, li,
-							        BufferAllocator);
+							li = service.synthesize("<s>small test</s>", null, null, resource,
+							        null, BufferAllocator, false);
+
 						} catch (SynthesisException | InterruptedException | MemoryException e) {
 							e.printStackTrace();
 							break;

@@ -5,17 +5,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.StraightBufferAllocator;
+import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.acapela.AcapelaTTS.ThreadResources;
@@ -84,36 +83,49 @@ public class AcapelaTest {
 		Assert.assertTrue(size > 2000);
 	}
 
-	@Test
-	public void oneBookmark() throws SynthesisException, IOException, InterruptedException,
-	        MemoryException {
+	public void simpleBookmark(String bookmark) throws SynthesisException, MemoryException,
+	        InterruptedException {
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-		r.idsToMark = Arrays.asList("bmark1", "bmark2", "bmark3");
 
-		List<Entry<String, Integer>> l = new ArrayList<Entry<String, Integer>>();
+		List<Mark> l = new ArrayList<Mark>();
 
-		int bmark = 1;
 		String text = "A piece of text long enough.";
-		int size = getSize(tts.speak(format(text + "<mark name=\"" + bmark + "\"/>" + text),
-		        r, l, BufferAllocator));
+		int size = getSize(tts.speak(format(text + "<mark name=\"" + bookmark + "\"></mark>"
+		        + text), r, l, BufferAllocator));
 		tts.releaseThreadResources(r);
 
 		Assert.assertTrue(size > 2000);
 		Assert.assertTrue(1 == l.size());
-		Assert.assertEquals(r.idsToMark.get(bmark), l.get(0).getKey());
+		Assert.assertEquals(bookmark, l.get(0).name);
+		Assert.assertTrue(Math.abs(size / 2 - l.get(0).offsetInAudio) < 5000); //the mark is around the middle
+	}
 
-		Assert.assertTrue(Math.abs(size / 2 - l.get(0).getValue()) < 5000); //the mark is around the middle
+	@Test
+	public void oneBookmark() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
+		simpleBookmark("bmark");
+	}
+
+	@Test
+	public void endingBookmark() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
+		simpleBookmark(tts.endingMark());
+	}
+
+	@Test
+	public void hardBookmark() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
+		simpleBookmark("___bmark-999___");
 	}
 
 	@Test
 	public void twoBookmarks() throws SynthesisException, InterruptedException,
 	        MemoryException {
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-		r.idsToMark = Arrays.asList("bmark1", "bmark2", "bmark3");
 
-		List<Entry<String, Integer>> l = new ArrayList<Entry<String, Integer>>();
-		Integer bmark1 = 1;
-		Integer bmark2 = 2;
+		List<Mark> l = new ArrayList<Mark>();
+		String bmark1 = "1";
+		String bmark2 = "2";
 
 		int size = getSize(tts.speak(format("one two three four <mark name=\"" + bmark1
 		        + "\"/> five <mark name=\"" + bmark2 + "\"/>"), r, l, BufferAllocator));
@@ -121,9 +133,9 @@ public class AcapelaTest {
 
 		Assert.assertTrue(size > 200);
 		Assert.assertTrue(2 == l.size());
-		Assert.assertEquals(r.idsToMark.get(bmark1), l.get(0).getKey());
-		Assert.assertEquals(r.idsToMark.get(bmark2), l.get(1).getKey());
-		Assert.assertTrue(l.get(1).getValue() - l.get(0).getValue() < l.get(0).getValue());
+		Assert.assertEquals(bmark1, l.get(0).name);
+		Assert.assertEquals(bmark2, l.get(1).name);
+		Assert.assertTrue(l.get(1).offsetInAudio - l.get(0).offsetInAudio < l.get(0).offsetInAudio);
 	}
 
 	private int[] findSize(final String[] sentences, int startShift)
@@ -242,13 +254,12 @@ public class AcapelaTest {
 
 		//test every character individually
 		String begin = "<s>begin ";
-		String end = " this is the end of the sentence long enough for tests<mark name=\"0\"></s>";
+		String end = " this is the end of the sentence long enough for tests<mark name=\"end\"></s>";
 		Integer refSize = null;
 
 		for (Character c : chars) {
 			ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-			r.idsToMark = Arrays.asList("end");
-			List<Entry<String, Integer>> l = new ArrayList<Entry<String, Integer>>();
+			List<Mark> l = new ArrayList<Mark>();
 
 			int size = getSize(tts.speak(format(begin + c + end, "alice"), r, l,
 			        BufferAllocator));

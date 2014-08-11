@@ -1,7 +1,6 @@
 package org.daisy.pipeline.tts.synthesize;
 
 import java.io.File;
-import java.util.List;
 
 import javax.sound.sampled.AudioFormat;
 
@@ -25,7 +24,7 @@ class ContiguousPCM implements Comparable<ContiguousPCM> {
 		return (mEncodingTimeApprox == -1);
 	}
 
-	ContiguousPCM(AudioFormat audioformat, List<AudioBuffer> buffers, File destdir,
+	ContiguousPCM(AudioFormat audioformat, Iterable<AudioBuffer> buffers, File destdir,
 	        String destFilePrefix) {
 		mDestURI = new StringBuilder();
 		mAudioFormat = audioformat;
@@ -58,7 +57,7 @@ class ContiguousPCM implements Comparable<ContiguousPCM> {
 		return mAudioFormat;
 	}
 
-	List<AudioBuffer> getBuffers() {
+	Iterable<AudioBuffer> getBuffers() {
 		return mBuffers;
 	}
 
@@ -74,7 +73,7 @@ class ContiguousPCM implements Comparable<ContiguousPCM> {
 		return 500;//rough approximation of an empty ContiguousPCM's memory footprint
 	}
 
-	private List<AudioBuffer> mBuffers;
+	private Iterable<AudioBuffer> mBuffers;
 	private int mEncodingTimeApprox; //used for sorting
 	private int mSizeInBytes; //used for monitoring the memory footprint
 	private AudioFormat mAudioFormat;

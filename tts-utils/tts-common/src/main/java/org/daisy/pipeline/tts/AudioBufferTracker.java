@@ -26,9 +26,9 @@ public class AudioBufferTracker implements AudioBufferAllocator {
 		} else {
 			maxMem = Runtime.getRuntime().maxMemory();
 			if (maxMem == Long.MAX_VALUE)
-				maxMem = 350 * 1048576; //350 MB
+				maxMem = 500 * 1048576; //500 MB
 			else
-				maxMem /= 3; //33% of the total memory
+				maxMem /= 2; //50% of the total memory
 		}
 		if (maxMem > Integer.MAX_VALUE)
 			maxMem = Integer.MAX_VALUE;
@@ -55,6 +55,10 @@ public class AudioBufferTracker implements AudioBufferAllocator {
 		return res;
 	}
 
+	/**
+	 * Must not be used by the encoders. They should use releaseEncodersMemory()
+	 * instead.
+	 */
 	@Override
 	public void releaseBuffer(AudioBuffer b) {
 		releaseTTSMemory(getFootPrint(b));

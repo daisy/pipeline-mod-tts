@@ -39,4 +39,11 @@ public class SoundUtil {
 		System.arraycopy(buffer.data, 0, newBuffer, 0, buffer.size);
 		buffer.data = newBuffer;
 	}
+
+	static public void cancelFootPrint(Iterable<AudioBuffer> buffers,
+	        AudioBufferAllocator allocator) {
+		for (AudioBuffer buff : buffers) {
+			allocator.releaseBuffer(buff);
+		}
+	}
 }

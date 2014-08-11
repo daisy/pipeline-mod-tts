@@ -1,36 +1,29 @@
 package org.daisy.pipeline.tts.acapela;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import javax.sound.sampled.AudioFormat;
 
-import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AbstractTTSService;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
-import org.daisy.pipeline.tts.BasicSSMLAdapter;
 import org.daisy.pipeline.tts.LoadBalancer.Host;
 import org.daisy.pipeline.tts.RoundRobinLoadBalancer;
-import org.daisy.pipeline.tts.SSMLAdapter;
-import org.daisy.pipeline.tts.SSMLUtil;
-import org.daisy.pipeline.tts.StraightBufferAllocator;
+import org.daisy.pipeline.tts.SoundUtil;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSServiceUtil;
-import org.daisy.pipeline.tts.TestableTTSService;
 import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.acapela.NscubeLibrary.PNSC_FNSPEECH_DATA;
 import org.daisy.pipeline.tts.acapela.NscubeLibrary.PNSC_FNSPEECH_EVENT;
+import org.osgi.framework.BundleContext;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
@@ -45,7 +38,7 @@ import com.sun.jna.ptr.PointerByReference;
  * (it) • Brazilian (br) • German (de). For other languages, we can adapt the
  * SSML to the tag language (/mark{...}, /voice{...}) etc.
  */
-public class AcapelaTTS extends AbstractTTSService implements TestableTTSService {
+public class AcapelaTTS extends AbstractTTSService {
 
 	private AudioFormat mAudioFormat;
 	private RoundRobinLoadBalancer mLoadBalancer;
@@ -59,43 +52,12 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 		PointerByReference channelLock;
 		Pointer server;
 		List<AudioBuffer> chunks;
-		List<Entry<String, Integer>> marks;
+		List<Mark> marks;
 		NSC_EXEC_DATA execData;
-		List<String> idsToMark; //we don't use directly the marks' names because they may contain non-alphanumeric characters
-		SSMLAdapter ssmlAdapter; //we use a different adapter for every thread because IdstoMark must not be shared.
 		AudioBufferAllocator audioBufferAllocator;
 		int outOfMemBytes;
 
 		public ThreadResources() {
-			idsToMark = new ArrayList<String>();
-
-			ssmlAdapter = new BasicSSMLAdapter() {
-				@Override
-				public String adaptText(String text) {
-					return super.adaptText(SpaceRegex.matcher(text).replaceAll(" "));
-				}
-
-				@Override
-				public String adaptAttributeValue(QName element, QName attr, String value) {
-					if ("mark".equals(element.getLocalName())
-					        && "name".equals(attr.getLocalName())) {
-						int id = idsToMark.size();
-						idsToMark.add(value);
-						return String.valueOf(id);
-					}
-					return super.adaptAttributeValue(element, attr, value);
-				}
-
-				@Override
-				public String getHeader(String voiceName) {
-					if (voiceName != null && !voiceName.isEmpty()) {
-						return "\\voice{" + voiceName + "}" + super.getHeader(voiceName);
-					}
-					return super.getHeader(voiceName);
-				}
-
-			};
-
 			execData = new NSC_EXEC_DATA();
 			execData.ulEventFilter = new NativeLong(NscubeLibrary.NSC_EVTBIT_TEXT
 			        | NscubeLibrary.NSC_EVTBIT_BOOKMARK);
@@ -130,10 +92,8 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 						NSC_EVENT_DATA_Bookmark bookmark = new NSC_EVENT_DATA_Bookmark(
 						        pEventData.getPointer());
 						bookmark.read();
-
-						String bookmarkName = idsToMark.get(bookmark.uiVal);
-						marks.add(new AbstractMap.SimpleEntry<String, Integer>(bookmarkName,
-						        bookmark.uiByteCount));
+						String bookmarkName = String.valueOf(bookmark.uiVal);
+						marks.add(new Mark(bookmarkName, bookmark.uiByteCount));
 					} else if (nEventID == NscubeLibrary.NSC_EVID_ENUM.NSC_EVID_BOOKMARK_EXT) {
 						// In regular cases, this should not happen because the marks are numeric.
 						// It is only used for running the tests for which the SSML serialization
@@ -142,8 +102,7 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 						        pEventData.getPointer());
 						bookmark.read();
 						String bookmarkName = new String(bookmark.szVal).trim();
-						marks.add(new AbstractMap.SimpleEntry<String, Integer>(bookmarkName,
-						        bookmark.uiByteCount));
+						marks.add(new Mark(bookmarkName, bookmark.uiByteCount));
 					}
 
 					return 0;
@@ -302,8 +261,8 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 	}
 
 	@Override
-	public Collection<AudioBuffer> synthesize(XdmNode ssml, Voice voice,
-	        TTSResource threadResources, List<Entry<String, Integer>> marks,
+	public Collection<AudioBuffer> synthesize(String ssml, XdmNode xmlSSML, Voice voice,
+	        TTSResource threadResources, List<Mark> marks,
 	        AudioBufferAllocator bufferAllocator, boolean retry) throws SynthesisException,
 	        InterruptedException, MemoryException {
 
@@ -317,14 +276,19 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 		}
 
 		//note: the Acapela's markup for SSML interpretation is active by default.
-		th.idsToMark.clear();
-		return speak(SSMLUtil.toString(ssml, voice.name, th.ssmlAdapter, endingMark()), th,
-		        marks, bufferAllocator);
+		Collection<AudioBuffer> res = speak(ssml, th, marks, bufferAllocator);
+
+		for (Mark m : marks) {
+			//ugly hack because Acapela doesn't handle marks with '_' in their name.
+			//The less ugly (but slow) option would be to create an HashMap every time
+			m.name = m.name.replaceAll("ZZZ", "_");
+		}
+
+		return res;
 	}
 
-	public Collection<AudioBuffer> speak(String ssml, TTSResource tr,
-	        List<Entry<String, Integer>> marks, AudioBufferAllocator bufferAllocator)
-	        throws SynthesisException, MemoryException {
+	Collection<AudioBuffer> speak(String ssml, TTSResource tr, List<Mark> marks,
+	        AudioBufferAllocator bufferAllocator) throws SynthesisException, MemoryException {
 		ThreadResources th = (ThreadResources) tr;
 		th.chunks = new ArrayList<AudioBuffer>();
 		th.audioBufferAllocator = bufferAllocator;
@@ -346,10 +310,12 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 		ret = lib.nscExecChannel(th.channelLock.getValue(), th.execData);
 		lib.nscUnlockChannel(th.channelLock.getValue());
 		if (ret != NscubeLibrary.NSC_OK) {
-			throw new SynthesisException("nscExecChannel returned error code:" + ret);
+			SoundUtil.cancelFootPrint(th.chunks, bufferAllocator);
+			throw new SynthesisException("nscExecChannel returned error code: " + ret);
 		}
 
 		if (th.outOfMemBytes > 0) {
+			SoundUtil.cancelFootPrint(th.chunks, bufferAllocator);
 			throw new MemoryException(th.outOfMemBytes);
 		}
 
@@ -438,28 +404,7 @@ public class AcapelaTTS extends AbstractTTSService implements TestableTTSService
 		return mMsPerWord;
 	}
 
-	//// TODO: use the new unicode class in Java7 or move this somewhere in framework/common
-
-	private static Pattern SpaceRegex = null;
-	static {
-		char[] SpaceChars = {
-		        0x0020, 0x0085, 0x00A0, 0x1680, 0x180E, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000
-		};
-
-		String spaces = "";
-		for (char spaceChar : SpaceChars) {
-			spaces += new Character(spaceChar);
-		}
-		spaces += new Character((char) 0x0009) + "-" + new Character((char) 0x000D);
-		spaces += new Character((char) 0x2000) + "-" + new Character((char) 0x200A);
-		SpaceRegex = Pattern.compile("[" + spaces + "]+", Pattern.DOTALL
-		        | Pattern.UNICODE_CASE | Pattern.MULTILINE);
-	}
-
-	@Override
-	public Collection<AudioBuffer> testSpeak(String ssml, Voice v, TTSResource th,
-	        List<Entry<String, Integer>> marks) throws SynthesisException,
-	        InterruptedException, MemoryException {
-		return speak(ssml, th, marks, new StraightBufferAllocator());
+	public void init(BundleContext context) {
+		mXSLTresource = context.getBundle().getEntry("/transform-ssml.xsl");
 	}
 }

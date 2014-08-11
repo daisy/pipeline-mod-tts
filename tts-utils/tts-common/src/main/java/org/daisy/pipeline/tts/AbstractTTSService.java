@@ -1,6 +1,9 @@
 package org.daisy.pipeline.tts;
 
+import java.net.URL;
+
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.osgi.framework.BundleContext;
 
 public abstract class AbstractTTSService implements TTSService {
 
@@ -45,10 +48,24 @@ public abstract class AbstractTTSService implements TTSService {
 
 	@Override
 	public String endingMark() {
-		return null;
+		return null; //marks not handled
 	}
 
 	@Override
 	public void interruptCurrentWork(TTSResource resource) {
 	}
+
+	public void init(BundleContext context) {
+		mXSLTresource = context.getBundle().getEntry("/transform-ssml.xsl");
+	}
+
+	public void close() {
+	}
+
+	@Override
+	public URL getSSMLxslTransformerURL() {
+		return mXSLTresource;
+	}
+
+	protected URL mXSLTresource;
 }

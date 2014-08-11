@@ -1,5 +1,6 @@
 package org.daisy.pipeline.tts;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.AbstractMap;
@@ -19,9 +20,17 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import javax.xml.transform.URIResolver;
+
+import net.sf.saxon.s9api.SaxonApiException;
+
+import org.daisy.common.xslt.CompiledStylesheet;
+import org.daisy.common.xslt.XslTransformCompiler;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.xmlcalabash.core.XProcConfiguration;
 
 // TODO: mark the voices as Male or Female and use this information when
 // choosing a voice
@@ -30,6 +39,16 @@ public class TTSRegistry {
 
 	public static class TTSResource {
 		public boolean released = false;
+	}
+
+	private URIResolver mURIResolver;
+
+	public void setURIResolver(URIResolver uriResolver) {
+		mURIResolver = uriResolver;
+	}
+
+	public void unsetURIResolver(URIResolver uriResolver) {
+		mURIResolver = null;
 	}
 
 	/// ==========================================================================================
@@ -91,7 +110,7 @@ public class TTSRegistry {
 	 * maps that allow the user to quickly access to the best voices or the best
 	 * services for a given vendor/language/gender.
 	 */
-	public void openSynthesizingContext() {
+	public void openSynthesizingContext(XProcConfiguration xprocConf) {
 		synchronized (this) {
 			mContextOpened++;
 			if (mContextOpened > 1)
@@ -101,31 +120,49 @@ public class TTSRegistry {
 		synchronized (mTTSResources) {
 			mTTSResources.clear();
 		}
+
+		mContext = new TTSContext();
+
+		XslTransformCompiler xslCompiler = new XslTransformCompiler(xprocConf, mURIResolver);
+
 		TTSTimeout timeout = new TTSTimeout();
 		for (TTSService tts : mServices) {
 			String fullname = TTSServiceUtil.displayName(tts);
+			CompiledStylesheet transf = null;
 			try {
-				timeout.enableForCurrentThread(3);
-				tts.onBeforeOneExecution();
-				synchronized (mTTSResources) {
-					mTTSResources.put(tts, new ArrayList<TTSResource>());
+				transf = xslCompiler.compileStylesheet(tts.getSSMLxslTransformerURL()
+				        .openStream());
+			} catch (SaxonApiException e) {
+				ServerLogger.error(fullname + "'s SSML transformer could not be compiled: "
+				        + getStack(e));
+			} catch (IOException e1) {
+				ServerLogger.error("IO error while loading " + fullname
+				        + "'s SSML transformer: " + getStack(e1));
+			}
+
+			if (transf != null) {
+				mContext.ssmlTransformers.put(tts, transf);
+				try {
+					timeout.enableForCurrentThread(3);
+					tts.onBeforeOneExecution();
+					synchronized (mTTSResources) {
+						mTTSResources.put(tts, new ArrayList<TTSResource>());
+					}
+					ServerLogger.info(fullname + " successfully initialized");
+				} catch (InterruptedException e) {
+					ServerLogger.error("timeout while initializing " + fullname);
+				} catch (Throwable t) {
+					ServerLogger.error(fullname + " could not be initialized");
+					ServerLogger.debug(fullname + " init error: " + getStack(t));
+				} finally {
+					timeout.disable();
 				}
-				ServerLogger.info(fullname + " successfully initialized");
-			} catch (InterruptedException e) {
-				ServerLogger.error("timeout while initializing " + fullname);
-			} catch (Throwable t) {
-				ServerLogger.error(fullname + " could not be initialized");
-				ServerLogger.debug(fullname + " init error: " + getStack(t));
-			} finally {
-				timeout.disable();
 			}
 		}
 		timeout.close();
 
 		ServerLogger.info("number of working TTS services: " + mTTSResources.size() + "/"
 		        + mServices.size());
-
-		mContext = new TTSContext();
 
 		//Create a map of the best services for each available voice, given that two different
 		//services can serve the same voice. 
@@ -251,6 +288,7 @@ public class TTSRegistry {
 		private Map<Voice, TTSService> bestServices = new HashMap<Voice, TTSService>();
 		private Map<Locale, Voice> bestVoices = new HashMap<Locale, Voice>();
 		private Map<Voice, Voice> secondVoices = new HashMap<Voice, Voice>();
+		private Map<TTSService, CompiledStylesheet> ssmlTransformers = new HashMap<TTSService, CompiledStylesheet>();
 	};
 
 	private TTSContext mContext = null;
@@ -316,6 +354,10 @@ public class TTSRegistry {
 	 */
 	public TTSService getTTS(Voice voice) {
 		return mContext.bestServices.get(voice);
+	}
+
+	public CompiledStylesheet getSSMLTransformer(TTSService service) {
+		return mContext.ssmlTransformers.get(service);
 	}
 
 	private static String getStack(Throwable t) {

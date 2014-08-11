@@ -1,13 +1,10 @@
 package org.daisy.pipeline.tts.attnative;
 
 import java.nio.ByteBuffer;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import javax.sound.sampled.AudioFormat;
 
@@ -17,43 +14,22 @@ import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AbstractTTSService;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
-import org.daisy.pipeline.tts.BasicSSMLAdapter;
 import org.daisy.pipeline.tts.LoadBalancer.Host;
 import org.daisy.pipeline.tts.RoundRobinLoadBalancer;
-import org.daisy.pipeline.tts.SSMLAdapter;
-import org.daisy.pipeline.tts.SSMLUtil;
-import org.daisy.pipeline.tts.StraightBufferAllocator;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSServiceUtil;
-import org.daisy.pipeline.tts.TestableTTSService;
 import org.daisy.pipeline.tts.Voice;
 
-public class ATTNative extends AbstractTTSService implements ATTLibListener,
-        TestableTTSService {
+public class ATTNative extends AbstractTTSService implements ATTLibListener {
 
 	private AudioFormat mAudioFormat;
 	private RoundRobinLoadBalancer mLoadBalancer;
 	private boolean mFirstInit = true;
 
-	public static SSMLAdapter mSSMLAdapter = new BasicSSMLAdapter() {
-		@Override
-		public String getFooter() {
-			return "</voice>";
-		}
-
-		@Override
-		public String getHeader(String voiceName) {
-			if (voiceName == null || voiceName.isEmpty()) {
-				return "<voice>";
-			}
-			return "<voice name=\"" + voiceName + "\">";
-		}
-	};
-
 	private static class ThreadResource extends TTSResource {
 		long connection;
 		List<AudioBuffer> audioBuffers;
-		List<Map.Entry<String, Integer>> marks;
+		List<Mark> marks;
 		byte[] utf8text;
 		int offset;
 		int outOfMemBytes;
@@ -101,8 +77,8 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener,
 	}
 
 	@Override
-	public Collection<AudioBuffer> synthesize(XdmNode ssml, Voice voice, TTSResource resource,
-	        List<Entry<String, Integer>> marks, AudioBufferAllocator bufferAllocator,
+	public Collection<AudioBuffer> synthesize(String ssml, XdmNode xmlSSML, Voice voice,
+	        TTSResource resource, List<Mark> marks, AudioBufferAllocator bufferAllocator,
 	        boolean retry) throws SynthesisException, InterruptedException, MemoryException {
 		if (retry) {
 			//If the synthesis has failed once, it's likely because the connection is dead,
@@ -113,20 +89,12 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener,
 			old.connection = tr.connection;
 		}
 
-		String str = SSMLUtil.toString(ssml, voice.name, mSSMLAdapter, endingMark());
-		return synthesize(str, resource, marks, bufferAllocator);
-	}
-
-	@Override
-	public Collection<AudioBuffer> testSpeak(String ssml, Voice v, TTSResource th,
-	        List<Entry<String, Integer>> marks) throws SynthesisException,
-	        InterruptedException, MemoryException {
-		return synthesize(ssml, th, marks, new StraightBufferAllocator());
+		return synthesize(ssml, resource, marks, bufferAllocator);
 	}
 
 	private Collection<AudioBuffer> synthesize(String ssml, TTSResource resource,
-	        List<Entry<String, Integer>> marks, AudioBufferAllocator bufferAllocator)
-	        throws SynthesisException, MemoryException {
+	        List<Mark> marks, AudioBufferAllocator bufferAllocator) throws SynthesisException,
+	        MemoryException {
 
 		ThreadResource tr = (ThreadResource) resource;
 		tr.audioBuffers = new ArrayList<AudioBuffer>();
@@ -175,7 +143,7 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener,
 	@Override
 	public void onRecvMark(Object handler, String name) {
 		ThreadResource tr = (ThreadResource) handler;
-		tr.marks.add(new AbstractMap.SimpleEntry<String, Integer>(name, tr.offset));
+		tr.marks.add(new Mark(name, tr.offset));
 	}
 
 	@Override

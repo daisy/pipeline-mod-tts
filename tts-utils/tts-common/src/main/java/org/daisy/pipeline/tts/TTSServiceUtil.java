@@ -3,10 +3,10 @@ package org.daisy.pipeline.tts;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
 
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 
 public class TTSServiceUtil {
@@ -50,20 +50,18 @@ public class TTSServiceUtil {
 	public static Throwable testTTS(TTSService tts, Voice v, String testStr, String ssmlMark,
 	        TTSResource resources) throws InterruptedException {
 
-		//can throw invalid cast exception
-		TestableTTSService strTTS = (TestableTTSService) tts;
-
 		if (tts.endingMark() != null) {
 			if (ssmlMark == null)
 				ssmlMark = "<mark name=\"" + tts.endingMark() + "\"/>";
 			testStr += ssmlMark;
 		}
 		Collection<AudioBuffer> audioBuffers = null;
-		List<Entry<String, Integer>> marks = new ArrayList<Entry<String, Integer>>();
+		List<Mark> marks = new ArrayList<Mark>();
 		try {
 			if (resources == null)
 				resources = tts.allocateThreadResources();
-			audioBuffers = strTTS.testSpeak(testStr, v, resources, marks);
+			audioBuffers = tts.synthesize(testStr, null, v, resources, marks,
+			        new StraightBufferAllocator(), false);
 		} catch (InterruptedException e) {
 			throw e;
 		} catch (Throwable t) {
@@ -92,15 +90,14 @@ public class TTSServiceUtil {
 				return new TTSService.SynthesisException(
 				        "one bookmark events expected. Received " + marks.size() + " instead.");
 			}
-			String markName = marks.get(0).getKey();
-			int markOffset = marks.get(0).getValue();
-			if (!tts.endingMark().equals(markName)) {
+			Mark mark = marks.get(0);
+			if (!tts.endingMark().equals(mark.name)) {
 				return new TTSService.SynthesisException("expecting ending mark "
-				        + tts.endingMark() + ". Got " + markName + " instead ");
+				        + tts.endingMark() + ". Got " + mark.name + " instead ");
 			}
-			if (markOffset < 2500) {
+			if (mark.offsetInAudio < 2500) {
 				return new TTSService.SynthesisException(
-				        "expecting ending mark offset to be bigger. Got " + markOffset
+				        "expecting ending mark offset to be bigger. Got " + mark.offsetInAudio
 				                + " as offset");
 			}
 		}

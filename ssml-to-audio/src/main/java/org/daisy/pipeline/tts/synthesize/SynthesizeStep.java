@@ -122,7 +122,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			return;
 		}
 
-		mTTSRegistry.openSynthesizingContext();
+		mTTSRegistry.openSynthesizingContext(mRuntime.getConfiguration());
 
 		File audioOutputDir = null;
 		do {
@@ -134,7 +134,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		audioOutputDir.mkdir();
 
 		SSMLtoAudio ssmltoaudio = new SSMLtoAudio(audioOutputDir, mTTSRegistry, this,
-		        mAudioBufferTracker);
+		        mAudioBufferTracker, mRuntime.getProcessor());
 
 		Iterable<SoundFileLink> soundFragments = Collections.EMPTY_LIST;
 		try {
@@ -179,10 +179,9 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		tw.endDocument();
 
 		printInfo("number of synthesized sound fragments: " + num);
-		printInfo("unreleased bytes used for audio encoding: "
+		printInfo("audio encoding unreleased bytes : "
 		        + mAudioBufferTracker.getUnreleasedEncondingMem());
-		printInfo("unreleased bytes used for TTS: "
-		        + mAudioBufferTracker.getUnreleasedTTSMem());
+		printInfo("TTS unreleased bytes: " + mAudioBufferTracker.getUnreleasedTTSMem());
 
 		result.write(tw.getResult());
 	}
