@@ -59,36 +59,42 @@
       <!-- Group skippable elements with the same CSS properties. -->
       <xsl:for-each-group select="//*[contains($skippable-list, concat(',', local-name(), ','))]"
 			  group-by="key('skippables', @id, $skippable-properties)/concat(string-join(@*[namespace-uri()=$style-ns]/local-name(),'_'), string-join(@xml:lang|@*[namespace-uri()=$style-ns],'_'))">
-	<ssml:speak version="1.1"> <!-- version 1.0 has no <ssml:token> nor <ssml:w> -->
-	  <ssml:s id="{concat('cousins-of-',@id)}">
-	    <xsl:copy-of select="key('skippables', current-group()[1]/@id, $skippable-properties)/@*[local-name() != 'id']"/>
-	    <xsl:for-each select="current-group()">
-	      <!-- TODO: merge the adjacent marks with the syntax 'idleft__idright' to speed up the TTS. -->
-	      <ssml:mark name="{concat($mark-delimiter, @id)}"/>
-	      <xsl:variable name="dict-entry" select="key('translate', local-name(current()), $dictionary)"/>
-	      <xsl:variable name="text" select="current()//text()"/>
-	      <xsl:variable name="new-text" select="if ($dict-entry) then
+
+	<xsl:variable name="attrs" select="key('skippables', current-group()[1]/@id, $skippable-properties)/@*[local-name() != 'id']"/>
+
+	<!-- Group by packets of 10 instances -->
+	<xsl:for-each-group select="current-group()" group-by="(position() - 1) idiv 10">
+	  <ssml:speak version="1.1"> <!-- version 1.0 has no <ssml:token> nor <ssml:w> -->
+	    <ssml:s id="{concat('internal-holder-of-', current-group()[1]/@id)}">
+	      <xsl:copy-of select="$attrs"/>
+	      <xsl:for-each select="current-group()">
+		<!-- TODO: merge the adjacent marks with the syntax 'idleft__idright' to speed up the TTS. -->
+		<ssml:mark name="{concat($mark-delimiter, @id)}"/>
+		<xsl:variable name="dict-entry" select="key('translate', local-name(current()), $dictionary)"/>
+		<xsl:variable name="text" select="current()//text()"/>
+		<xsl:variable name="new-text" select="if ($dict-entry) then
 	      					    (if ($text != '') then replace($text, '^(.)+$', $dict-entry/@say)
 	      					    else $dict-entry/@empty)
 	      					    else $text"/>
-	      <xsl:choose>
-		<xsl:when test="not($new-text = $text)">
-		  <xsl:copy>
-		    <xsl:copy-of select="@*"/>
-		    <xsl:value-of select="$new-text"/>
-		  </xsl:copy>
-		</xsl:when>
-		<xsl:otherwise>
-		  <xsl:copy-of select="current()"/>
-		</xsl:otherwise>
-	      </xsl:choose>
+		<xsl:choose>
+		  <xsl:when test="not($new-text = $text)">
+		    <xsl:copy>
+		      <xsl:copy-of select="@*"/>
+		      <xsl:value-of select="$new-text"/>
+		    </xsl:copy>
+		  </xsl:when>
+		  <xsl:otherwise>
+		    <xsl:copy-of select="current()"/>
+		  </xsl:otherwise>
+		</xsl:choose>
 
-	      <xsl:value-of select="','"/> <!-- force the processor to end the pronunciation with a neutral prosody. -->
-	      <ssml:mark name="{concat(@id, $mark-delimiter)}"/>
-	      <xsl:value-of select="' . '"/> <!-- force the processor to reinitialize the prosody state. -->
+		<xsl:value-of select="','"/> <!-- force the processor to end the pronunciation with a neutral prosody. -->
+		<ssml:mark name="{concat(@id, $mark-delimiter)}"/>
+		<xsl:value-of select="' . '"/> <!-- force the processor to reinitialize the prosody state. -->
 	      </xsl:for-each>
-	  </ssml:s>
-	</ssml:speak>
+	    </ssml:s>
+	  </ssml:speak>
+	</xsl:for-each-group>
       </xsl:for-each-group>
     </tmp:root>
   </xsl:template>
