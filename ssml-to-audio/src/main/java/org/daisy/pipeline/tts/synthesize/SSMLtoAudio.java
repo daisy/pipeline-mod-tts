@@ -89,10 +89,27 @@ class SSMLtoAudio implements IProgressListener {
 	void dispatchSSML(XdmNode ssml) throws SynthesisException {
 		String voiceVendor = ssml.getAttributeValue(new QName("voice-selector1"));
 		String voiceName = ssml.getAttributeValue(new QName("voice-selector2"));
+		String gender = ssml.getAttributeValue(new QName("voice-gender"));
+		String age = ssml.getAttributeValue(new QName("voice-age"));
+
+		if (age != null) {
+			try {
+				int age_i = Integer.parseInt(age);
+				if (age_i <= 16) {
+					gender += "-child";
+				} else if (age_i >= 70) {
+					gender += "-eldery";
+				}
+			} catch (NumberFormatException e) {
+				//ignore
+			}
+		}
+
 		String lang = ssml.getAttributeValue(new QName("http://www.w3.org/XML/1998/namespace",
 		        "lang"));
 
-		Voice voice = mTTSRegistry.findAvailableVoice(voiceVendor, voiceName, lang);
+		Voice voice = mTTSRegistry.getCurrentVoiceManager().findAvailableVoice(voiceVendor,
+		        voiceName, lang, gender);
 		if (voice == null) {
 			mLogger.printInfo("Could not find any installed voice matching "
 			        + new Voice(voiceVendor, voiceName) + " or providing the language '"
@@ -108,7 +125,7 @@ class SSMLtoAudio implements IProgressListener {
 		} else
 			mPreviousVoice = voice;
 
-		TTSService newSynth = mTTSRegistry.getTTS(voice);
+		TTSService newSynth = mTTSRegistry.getCurrentVoiceManager().getTTS(voice);
 		if (newSynth == null) {
 			/*
 			 * Should not happen since findAvailableVoice() returns only a

@@ -59,9 +59,6 @@ public abstract class AbstractTTSService implements TTSService {
 		mXSLTresource = context.getBundle().getEntry("/transform-ssml.xsl");
 	}
 
-	public void close() {
-	}
-
 	@Override
 	public URL getSSMLxslTransformerURL() {
 		return mXSLTresource;

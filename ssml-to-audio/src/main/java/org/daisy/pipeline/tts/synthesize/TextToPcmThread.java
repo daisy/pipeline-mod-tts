@@ -345,7 +345,8 @@ public class TextToPcmThread implements FormatSpecifications {
 			mResources.remove(tts);
 
 			//Find another TTS vendor for this sentence
-			Voice newVoice = mTTSRegistry.findSecondaryVoice(sentence.getVoice());
+			Voice newVoice = mTTSRegistry.getCurrentVoiceManager().findSecondaryVoice(
+			        sentence.getVoice());
 			if (newVoice == null) {
 				mPipelineLogger
 				        .printInfo("Something went wrong but no fallback voice can be found for "
@@ -355,7 +356,7 @@ public class TextToPcmThread implements FormatSpecifications {
 				                + " won't be synthesized.");
 				return;
 			}
-			tts = mTTSRegistry.getTTS(newVoice); //cannot return null in this case
+			tts = mTTSRegistry.getCurrentVoiceManager().getTTS(newVoice); //cannot return null in this case
 
 			//Try with the new vendor
 			marks.clear();

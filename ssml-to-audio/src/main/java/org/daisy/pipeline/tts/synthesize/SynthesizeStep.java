@@ -122,7 +122,8 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			return;
 		}
 
-		mTTSRegistry.openSynthesizingContext(mRuntime.getConfiguration());
+		mTTSRegistry.openSynthesizingContext(mRuntime.getProcessor()
+		        .getUnderlyingConfiguration());
 
 		File audioOutputDir = null;
 		do {
