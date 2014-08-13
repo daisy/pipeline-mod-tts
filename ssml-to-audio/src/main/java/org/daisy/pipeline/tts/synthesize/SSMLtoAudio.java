@@ -253,7 +253,7 @@ class SSMLtoAudio implements IProgressListener {
 		mProgress += section.getStringSize();
 		if (mProgress - mPrintedProgress > mTotalTextSize / 15) {
 			int TTSMem = mAudioBufferTracker.getUnreleasedTTSMem() / 1000000;
-			int EncodeMem = mAudioBufferTracker.getSpaceForEncoding() / 1000000;
+			int EncodeMem = mAudioBufferTracker.getUnreleasedEncondingMem() / 1000000;
 			mLogger.printInfo("progress: " + 100 * mProgress / mTotalTextSize + "%  [TTS: "
 			        + TTSMem + "MB encoding: " + EncodeMem + "MB]");
 			mPrintedProgress = mProgress;
@@ -288,6 +288,11 @@ class SSMLtoAudio implements IProgressListener {
 
 			//sort the sections according to their size in descending-order
 			Collections.sort(sections);
+
+			//keep sorted only the smallest sections (50% of total) so the biggest sections won't
+			//necessarily be processed at the same time, as that may consume too much memory.
+			Collections.shuffle(sections.subList(0, sections.size() / 2));
+
 			sectionCount += sections.size();
 		}
 		mLogger.printInfo("Number of TTS sections: " + sectionCount);
