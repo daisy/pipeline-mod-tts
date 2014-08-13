@@ -6,7 +6,7 @@
 	       xmlns:ssml="http://www.w3.org/2001/10/synthesis"
 	       xmlns:tmp="http://www.daisy.org/ns/pipeline/tmp"
 	       xmlns:xml="http://www.w3.org/XML/1998/namespace"
-               script="../../main/resources/xml/skippable-to-ssml.xpl">
+               script="../../main/resources/xml/xproc/skippable-to-ssml.xpl">
 
 
   <x:script>
@@ -15,16 +15,16 @@
 		    xmlns:d="http://www.daisy.org/ns/pipeline/data"
 		    type="pxi:skippable-to-ssml-wrapper">
 
-      <p:import href="../../main/resources/xml/skippable-to-ssml.xpl"/>
-      <p:import href="../../main/resources/xml/clean-text.xpl"/>
+      <p:import href="../../main/resources/xml/xproc/skippable-to-ssml.xpl"/>
+      <p:import href="clean-text.xpl"/>
 
       <p:input port="source" primary="true"/>
       <p:output port="result" primary="true"/>
 
-      <pxi:skippable-to-ssml>
+      <px:skippable-to-ssml>
 	<p:with-option name="skippable-elements" select="'pagenum,noteref'"/>
 	<p:with-option name="style-ns" select="'http://www.daisy.org/ns/pipeline/tmp'"/>
-      </pxi:skippable-to-ssml>
+      </px:skippable-to-ssml>
 
       <p:wrap-sequence wrapper="all" wrapper-namespace="http://www.w3.org/2001/10/synthesis"/>
       <pxi:clean-text/>
@@ -151,7 +151,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-n1" xml:lang="en"><ssml:mark name="___n1"/>cf. note<ssml:mark name="n1___"/></ssml:s>
+	    <ssml:s id="cousins-of-n1" xml:lang="en"><ssml:mark name="___n1"/>cfnote<ssml:mark name="n1___"/></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
