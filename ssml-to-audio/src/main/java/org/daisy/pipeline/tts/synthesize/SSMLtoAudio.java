@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 
 import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 
 import org.daisy.pipeline.audio.AudioServices;
@@ -56,7 +55,7 @@ import com.google.common.collect.Iterables;
  * corresponding text into the list of audio clips.
  * 
  */
-class SSMLtoAudio implements IProgressListener {
+class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	private TTSService mLastTTS; //used if no TTS is found for the current sentence
 	private TTSRegistry mTTSRegistry;
 	private IPipelineLogger mLogger;
@@ -87,10 +86,12 @@ class SSMLtoAudio implements IProgressListener {
 	 * The SSML is assumed to be pushed in document order.
 	 **/
 	void dispatchSSML(XdmNode ssml) throws SynthesisException {
-		String voiceVendor = ssml.getAttributeValue(new QName("voice-selector1"));
-		String voiceName = ssml.getAttributeValue(new QName("voice-selector2"));
-		String gender = ssml.getAttributeValue(new QName("voice-gender"));
-		String age = ssml.getAttributeValue(new QName("voice-age"));
+		String voiceVendor = ssml.getAttributeValue(Sentence_attr_select1);
+		String voiceName = ssml.getAttributeValue(Sentence_attr_select2);
+		String gender = ssml.getAttributeValue(Sentence_attr_gender);
+		String age = ssml.getAttributeValue(Sentence_attr_age);
+		String id = ssml.getAttributeValue(Sentence_attr_id);
+		String lang = ssml.getAttributeValue(Sentence_attr_lang);
 
 		if (age != null) {
 			try {
@@ -105,25 +106,17 @@ class SSMLtoAudio implements IProgressListener {
 			}
 		}
 
-		String lang = ssml.getAttributeValue(new QName("http://www.w3.org/XML/1998/namespace",
-		        "lang"));
-
+		boolean[] exactMatch = new boolean[1];
 		Voice voice = mTTSRegistry.getCurrentVoiceManager().findAvailableVoice(voiceVendor,
-		        voiceName, lang, gender);
+		        voiceName, lang, gender, exactMatch);
 		if (voice == null) {
-			mLogger.printInfo("Could not find any installed voice matching "
+			mLogger.printInfo(IPipelineLogger.AUDIO_MISSING
+			        + ": could not find any installed voice matching "
 			        + new Voice(voiceVendor, voiceName) + " or providing the language '"
-			        + lang + "'");
-			if (mPreviousVoice == null) {
-				mLogger.printInfo("The corresponding part of the text won't be synthesized.");
-				endSection();
-				return;
-			} else {
-				voice = mPreviousVoice;
-				mLogger.printInfo("Voice " + voice + " will be used instead.");
-			}
-		} else
-			mPreviousVoice = voice;
+			        + lang + "'. The sentence with id " + id + " won't be synthesized.");
+			endSection();
+			return;
+		}
 
 		TTSService newSynth = mTTSRegistry.getCurrentVoiceManager().getTTS(voice);
 		if (newSynth == null) {
@@ -131,9 +124,20 @@ class SSMLtoAudio implements IProgressListener {
 			 * Should not happen since findAvailableVoice() returns only a
 			 * non-null voice if a TTSService can provide it
 			 */
-			mLogger.printInfo("Could find any TTS processor for the voice " + voice);
+			mLogger.printInfo(IPipelineLogger.AUDIO_MISSING
+			        + ": could find any TTS processor for the voice " + voice
+			        + ". The sentence with id " + id + " won't be synthesized.");
+			endSection();
 			return;
 		}
+
+		if (!exactMatch[0]) {
+			mLogger.printInfo(IPipelineLogger.UNEXPECTED_VOICE
+			        + ": no voice matches exactly the requested characteristics. Voice "
+			        + voice + " will be used for synthesizing sentence with id=" + id);
+		}
+
+		mPreviousVoice = voice;
 
 		/*
 		 * If a TTS Service has no reserved threads, its sentences are pushed to

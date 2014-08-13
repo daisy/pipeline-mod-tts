@@ -27,7 +27,8 @@ public class EncodingThread {
 					try {
 						job = inputPCM.take();
 					} catch (InterruptedException e) {
-						logger.printInfo("Encoding thread has been interrupted.");
+						logger.printInfo(IPipelineLogger.AUDIO_MISSING
+						        + ": encoding thread has been interrupted.");
 						break;
 					}
 					if (job.isEndOfQueue()) {
@@ -39,7 +40,8 @@ public class EncodingThread {
 						if (encoder == null) {
 							job = null;
 							audioBufferTracker.releaseEncodersMemory(jobSize);
-							logger.printInfo("No audio encoder found. Encoding thread is stopping...");
+							logger.printInfo(IPipelineLogger.AUDIO_MISSING
+							        + ": No audio encoder found. Encoding thread is stopping...");
 							break;
 						}
 						Optional<String> destURI = encoder.encode(job.getBuffers(), job

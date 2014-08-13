@@ -82,7 +82,9 @@ public class TTSRegistryTest {
 		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", "acapela:claire"));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
-		Voice v = vm.findAvailableVoice("acapela", "claire", null, null);
+		boolean[] perfectMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice("acapela", "claire", null, null, perfectMatch);
+		Assert.assertTrue(perfectMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals("acapela", v.vendor);
 		Assert.assertEquals("claire", v.name);
@@ -96,11 +98,13 @@ public class TTSRegistryTest {
 		registry.addTTS(new SimplifiedProcessor("/buggy-ssml-adapter.xsl", "acapela:claire"));
 		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", "acapela:alice"));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
+		boolean[] perfectMatch = new boolean[1];
 
-		Voice v = vm.findAvailableVoice("acapela", "claire", null, null);
+		Voice v = vm.findAvailableVoice("acapela", "claire", null, null, perfectMatch);
 		Assert.assertNull(v);
 
-		v = vm.findAvailableVoice("acapela", "alice", null, null);
+		v = vm.findAvailableVoice("acapela", "alice", null, null, perfectMatch);
+		Assert.assertTrue(perfectMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals("acapela", v.vendor);
 		Assert.assertEquals("alice", v.name);
@@ -119,7 +123,9 @@ public class TTSRegistryTest {
 		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
-		Voice v = vm.findAvailableVoice(vendor, voiceName, null, null);
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(vendor, voiceName, null, null, exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(vendor, v.vendor);
 		Assert.assertEquals(voiceName, v.name);
@@ -139,7 +145,9 @@ public class TTSRegistryTest {
 		        fullname2));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
-		Voice v = vm.findAvailableVoice(null, null, "en", null);
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(null, null, "en", null, exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(vendor, v.vendor);
 		Assert.assertEquals(voiceName, v.name);
@@ -162,12 +170,15 @@ public class TTSRegistryTest {
 		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
 		        fullname2, fullname3, fullname4, fullname5));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
+		boolean[] exactMatch = new boolean[1];
 
-		Voice v = vm.findAvailableVoice(null, null, "en", "male-adult");
+		Voice v = vm.findAvailableVoice(null, null, "en", "male-adult", exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(maleVoice, v.name);
 
-		v = vm.findAvailableVoice(null, null, "en", "female-adult");
+		v = vm.findAvailableVoice(null, null, "en", "female-adult", exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(femaleVoice, v.name);
 
@@ -188,13 +199,16 @@ public class TTSRegistryTest {
 		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
 		        fullname2, fullname3));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
+		boolean[] exactMatch = new boolean[1];
 
-		Voice v = vm.findAvailableVoice(vendor1, null, "en", null);
+		Voice v = vm.findAvailableVoice(vendor1, null, "en", null, exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(vendor1, v.vendor);
 		Assert.assertEquals(voice1, v.name);
 
-		v = vm.findAvailableVoice(vendor2, null, "en", null);
+		v = vm.findAvailableVoice(vendor2, null, "en", null, exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(vendor2, v.vendor);
 		Assert.assertEquals(voice2, v.name);
@@ -216,8 +230,10 @@ public class TTSRegistryTest {
 		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
 		        fullname2, fullname3, fullname4));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
+		boolean[] exactMatch = new boolean[1];
 
-		Voice v = vm.findAvailableVoice("vendor1", null, "en", "male-adult");
+		Voice v = vm.findAvailableVoice("vendor1", null, "en", "male-adult", exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(vendor1, v.vendor);
 		Assert.assertEquals(maleVoice, v.name);
@@ -237,7 +253,56 @@ public class TTSRegistryTest {
 		        fullname2));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
-		Voice v = vm.findAvailableVoice("any-vendor", "any-voice", "en", "female-adult");
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice("any-vendor", "any-voice", "en", "female-adult",
+		        exactMatch);
+		Assert.assertFalse(exactMatch[0]);
+		Assert.assertNotNull(v);
+		Assert.assertEquals(vendor, vendor);
+		Assert.assertEquals(voiceName, v.name);
+
+		registry.closeSynthesizingContext();
+	}
+
+	@Test
+	public void approximateMatch1() throws MalformedURLException {
+		String vendor = "vendor";
+		String voiceName = "voice1";
+		String fullname1 = registerVoice(vendor, voiceName, "en", "male-adult", 10);
+		String fullname2 = registerVoice(vendor, "wrongvoice1", "fr", "male-adult", 100);
+		String fullname3 = registerVoice("another-vendor", "wrongvoice2", "en", "male-adult",
+		        200);
+
+		TTSRegistry registry = new TTSRegistry();
+		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
+		        fullname2, fullname3));
+		VoiceManager vm = registry.openSynthesizingContext(Conf);
+
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(vendor, null, "en", "female-adult", exactMatch);
+		Assert.assertFalse(exactMatch[0]);
+		Assert.assertNotNull(v);
+		Assert.assertEquals(vendor, vendor);
+		Assert.assertEquals(voiceName, v.name);
+
+		registry.closeSynthesizingContext();
+	}
+
+	@Test
+	public void approximateMatch2() throws MalformedURLException {
+		String vendor = "vendor";
+		String voiceName = "voice1";
+		String fullname1 = registerVoice(vendor, voiceName, "en", "male-adult", 10);
+		String fullname2 = registerVoice(vendor, "wrongvoice", "fr", "male-adult", 100);
+
+		TTSRegistry registry = new TTSRegistry();
+		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
+		        fullname2));
+		VoiceManager vm = registry.openSynthesizingContext(Conf);
+
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice("wrong-vendor", null, "en", "male-adult", exactMatch);
+		Assert.assertFalse(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(vendor, vendor);
 		Assert.assertEquals(voiceName, v.name);
@@ -261,7 +326,9 @@ public class TTSRegistryTest {
 		        fullname2, fullname3, fullname4, fullname5, fullname6));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
-		Voice v = vm.findAvailableVoice(null, null, "en-us", "male-adult");
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(null, null, "en-us", "male-adult", exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(voiceName, v.name);
 
@@ -286,7 +353,9 @@ public class TTSRegistryTest {
 		        fullname2, fullname3, fullname4));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
-		Voice v = vm.findAvailableVoice(null, null, "en-us", "male-adult");
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(null, null, "en-us", "male-adult", exactMatch);
+		Assert.assertTrue(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(firstChoice, v.name);
 

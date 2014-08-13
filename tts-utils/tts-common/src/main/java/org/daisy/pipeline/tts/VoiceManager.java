@@ -299,10 +299,14 @@ public class VoiceManager {
 	 * @param voiceName is null if unknown
 	 * @param lang is null if unknown
 	 * @param gender is null if unknown
+	 * @param exactMatch[0] will be set to True if an exact match is found. The
+	 *            argument can be null if the returned information is not
+	 *            required.
 	 */
 	public Voice findAvailableVoice(String voiceVendor, String voiceName, String lang,
-	        String gender) {
-		return findAvailableVoice(voiceVendor, voiceName, lang, VoiceInfo.gender(gender));
+	        String gender, boolean[] exactMatch) {
+		return findAvailableVoice(voiceVendor, voiceName, lang, VoiceInfo.gender(gender),
+		        exactMatch == null ? new boolean[1] : exactMatch);
 	}
 
 	public Voice findSecondaryVoice(Voice v) {
@@ -333,34 +337,46 @@ public class VoiceManager {
 	}
 
 	private Voice findAvailableVoice(String voiceVendor, String voiceName, String lang,
-	        Gender gender) {
+	        Gender gender, boolean[] exactMatch) {
 		if (voiceVendor != null && !voiceVendor.isEmpty() && voiceName != null
 		        && !voiceName.isEmpty()) {
 			Voice preferredVoice = new Voice(voiceVendor, voiceName);
 			if (mBestServices.containsKey(preferredVoice)) {
+				exactMatch[0] = true;
 				return preferredVoice;
 			}
 		}
+
+		exactMatch[0] = false;
 
 		Locale loc = VoiceInfo.tagToLocale(lang);
 		if (loc == null)
 			return null;
 
 		Locale shortLoc = new Locale(loc.getLanguage());
-		VoiceKey k1 = new VoiceKey(loc, gender, voiceVendor);
-		VoiceKey k2 = new VoiceKey(shortLoc, gender, voiceVendor);
 		Voice result;
 
-		result = searchVoice(mVoiceFullDescription, k1, k2);
-		if (result != null)
+		result = searchVoice(mVoiceFullDescription, new VoiceKey(loc, gender, voiceVendor),
+		        new VoiceKey(shortLoc, gender, voiceVendor));
+		if (result != null) {
+			exactMatch[0] = (voiceName == null);
 			return result;
-		result = searchVoice(mVoiceGenderMissing, k1, k2);
-		if (result != null)
-			return result;
-		result = searchVoice(mVoiceVendorMissing, k1, k2);
-		if (result != null)
-			return result;
+		}
 
+		result = searchVoice(mVoiceGenderMissing, new VoiceKey(loc, voiceVendor),
+		        new VoiceKey(shortLoc, voiceVendor));
+		if (result != null) {
+			exactMatch[0] = (voiceName == null && gender == null);
+			return result;
+		}
+		result = searchVoice(mVoiceVendorMissing, new VoiceKey(loc, gender), new VoiceKey(
+		        shortLoc, gender));
+		if (result != null) {
+			exactMatch[0] = (voiceName == null && voiceVendor == null);
+			return result;
+		}
+
+		exactMatch[0] = (voiceName == null && voiceVendor == null && gender == null);
 		return searchVoice(mVoiceLangOnly, loc, shortLoc);
 	}
 
@@ -399,13 +415,16 @@ public class VoiceManager {
 				res ^= this.gender.hashCode();
 			if (this.vendor != null)
 				res ^= this.vendor.hashCode();
+
 			return res;
 		}
 
 		public boolean equals(Object other) {
 			VoiceKey o = (VoiceKey) other;
-			return lang.equals(o.lang) && (gender == null || gender.equals(o.gender))
-			        && (vendor == null || vendor.equals(o.vendor));
+
+			return lang.equals(o.lang)
+			        && (gender == o.gender || (gender != null && gender.equals(o.gender)))
+			        && (vendor == o.vendor || (vendor != null && vendor.equals(o.vendor)));
 		}
 	}
 

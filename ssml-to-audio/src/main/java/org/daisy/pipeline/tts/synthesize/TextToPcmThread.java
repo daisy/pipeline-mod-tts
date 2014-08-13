@@ -103,7 +103,8 @@ public class TextToPcmThread implements FormatSpecifications {
 						} catch (Throwable t) {
 							StringWriter sw = new StringWriter();
 							t.printStackTrace(new PrintWriter(sw));
-							mPipelineLogger.printInfo("Sentence " + sentence.getID()
+							mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
+							        + ": sentence " + sentence.getID()
 							        + " caused the current thread to stop because of error: "
 							        + sw.toString());
 							breakloop = true;
@@ -348,12 +349,10 @@ public class TextToPcmThread implements FormatSpecifications {
 			Voice newVoice = mTTSRegistry.getCurrentVoiceManager().findSecondaryVoice(
 			        sentence.getVoice());
 			if (newVoice == null) {
-				mPipelineLogger
-				        .printInfo("Something went wrong but no fallback voice can be found for "
-				                + originalVoice
-				                + ". Sentence with id="
-				                + sentence.getID()
-				                + " won't be synthesized.");
+				mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
+				        + ": something went wrong but no fallback voice can be found for "
+				        + originalVoice + ". Sentence with id=" + sentence.getID()
+				        + " won't be synthesized.");
 				return;
 			}
 			tts = mTTSRegistry.getCurrentVoiceManager().getTTS(newVoice); //cannot return null in this case
@@ -368,16 +367,19 @@ public class TextToPcmThread implements FormatSpecifications {
 				return;
 			}
 			if (pcm == null) {
-				mPipelineLogger.printInfo("Something went wrong with " + originalVoice
+				mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
+				        + ": something went wrong with " + originalVoice
 				        + " but fallback voice " + newVoice
 				        + " didn't work either. Sentence with id=" + sentence.getID()
 				        + " won't be synthesized.");
 				return;
 			}
 
-			mPipelineLogger.printInfo("Something went wrong with " + originalVoice
-			        + ". Used voice " + newVoice + " instead to synthesize sentence with id="
-			        + sentence.getID());
+			mPipelineLogger
+			        .printInfo(IPipelineLogger.UNEXPECTED_VOICE
+			                + ": something went wrong with " + originalVoice + ". Used voice "
+			                + newVoice + " instead to synthesize sentence with id="
+			                + sentence.getID());
 
 			if (!tts.getAudioOutputFormat().equals(lastFormat))
 				flush(section, pcmOutput);
@@ -451,8 +453,9 @@ public class TextToPcmThread implements FormatSpecifications {
 	}
 
 	private void printMemError(Sentence sentence, MemoryException e) {
-		mPipelineLogger.printInfo("Out of memory when processing sentence with id="
-		        + sentence.getID() + " (" + e + "). It won't be synthesized.");
+		mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
+		        + ": out of memory when processing sentence with id=" + sentence.getID()
+		        + " (" + e + "). It won't be synthesized.");
 	}
 
 	private void addBuffers(Iterable<AudioBuffer> toadd) throws InterruptedException {
