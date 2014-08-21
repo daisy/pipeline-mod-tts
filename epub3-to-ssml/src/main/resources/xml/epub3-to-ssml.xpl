@@ -12,13 +12,10 @@
 
     <p:input port="fileset.in" sequence="false"/>
     <p:input port="content.in" primary="true" sequence="false"/>
+    <p:input port="sentence-ids" sequence="false"/>
 
-    <p:output port="content.out" sequence="false">
-      <p:pipe port="content.out" step="ssml-gen" />
-    </p:output>
-
-    <p:output port="ssml.out" primary="true" sequence="true">
-      <p:pipe port="ssml.out" step="ssml-gen" />
+    <p:output port="result" primary="true" sequence="true">
+      <p:pipe port="result" step="ssml-gen" />
     </p:output>
 
     <p:option name="css-sheet-uri" required="false" select="''"/>
@@ -34,10 +31,10 @@
       <p:input port="content.in">
 	<p:pipe port="content.in" step="main"/>
       </p:input>
+      <p:input port="sentence-ids">
+	<p:pipe port="sentence-ids" step="main"/>
+      </p:input>
       <p:with-option name="section-elements" select="'body'"/>
-      <p:with-option name="sentence-element" select="'span'"/>
-      <p:with-option name="sentence-attr" select="'role'"/>
-      <p:with-option name="sentence-attr-val" select="'sentence'"/>
       <p:with-option name="word-element" select="'span'"/>
       <p:with-option name="word-attr" select="'role'"/>
       <p:with-option name="word-attr-val" select="'word'"/>
