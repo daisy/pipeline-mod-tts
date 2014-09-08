@@ -36,8 +36,9 @@ import com.google.common.collect.Iterables;
  * audio data before sending them to encoders.
  * 
  * Once all the sentences have been assigned to TTS voices, they are sorted by
- * size and stored in a shared queue of ContiguousText. SSMLtoAudio creates
- * threads to consume this queue.
+ * size and stored in a shared queue of ContiguousText (actually, only the
+ * smallest sentences are sorted that way). SSMLtoAudio creates threads to
+ * consume this queue.
  * 
  * The TextToPcmThreads send PCM data to EncodingThreads via a queue of
  * ContiguousPCM. These PCM packets are then processed from the longest (with
@@ -81,6 +82,7 @@ class SSMLtoAudio implements IProgressListener {
 		mOrganizedText = new HashMap<TTSService, List<ContiguousText>>();
 		mAudioBufferTracker = audioBufferTracker;
 		mProc = proc;
+		mAudioDir = audioDir;
 	}
 
 	/**
