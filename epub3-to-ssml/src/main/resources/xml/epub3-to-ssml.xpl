@@ -18,7 +18,6 @@
       <p:pipe port="result" step="ssml-gen" />
     </p:output>
 
-    <p:option name="css-sheet-uri" required="false" select="''"/>
     <p:option name="ssml-of-lexicons-uris" required="false" select="''"/>
 
     <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
@@ -39,7 +38,6 @@
       <p:with-option name="word-attr" select="'role'"/>
       <p:with-option name="word-attr-val" select="'word'"/>
       <p:with-option name="ssml-of-lexicons-uris" select="$ssml-of-lexicons-uris"/>
-      <p:with-option name="aural-sheet-uri" select="$css-sheet-uri"/>
     </px:text-to-ssml>
 
     <px:message message="End SSML generation for EPUB3"/>

@@ -5,22 +5,22 @@
 		xmlns:d="http://www.daisy.org/ns/pipeline/data"
 		exclude-inline-prefixes="#all">
 
-  <p:input port="content.in" primary="true" sequence="true">
+  <p:input port="in-memory.in" primary="true" sequence="true">
     <p:documentation xmlns="http://www.w3.org/1999/xhtml">
       <p>List of documents in memory, including one or more HTML
-      documents.</p>
+      documents and lexicons.</p>
     </p:documentation>
   </p:input>
 
   <p:input port="fileset.in">
     <p:documentation xmlns="http://www.w3.org/1999/xhtml">
-       <p>Input fileset including ZedAI documents, lexicons and CSS
+       <p>Input filesets including HTML documents, lexicons and CSS
        stylesheets.</p>
     </p:documentation>
   </p:input>
 
   <p:output port="audio-map">
-    <p:pipe port="result" step="audio-map"/>
+    <p:pipe port="audio-map" step="synthesize"/>
     <p:documentation xmlns="http://www.w3.org/1999/xhtml">
        <p>List of audio clips (see pipeline-mod-tts
        documentation).</p>
@@ -28,10 +28,18 @@
   </p:output>
 
   <p:output port="content.out" primary="true" sequence="true">
-    <p:pipe port="result" step="enriched-files"/>
+    <p:pipe port="content.out" step="synthesize"/>
     <p:documentation xmlns="http://www.w3.org/1999/xhtml">
-       <p>Copy of content.in. The included HTML documents are
-       enriched with ids, words and sentences.</p>
+       <p>Copy of HTML documents of in-memory.in enriched with IDs,
+       words and sentences.</p>
+    </p:documentation>
+  </p:output>
+
+  <p:output port="in-memory.out" sequence="true">
+    <p:pipe port="non-html" step="html-filter"/>
+    <p:documentation xmlns="http://www.w3.org/1999/xhtml">
+       <p>Copy of in-memory.out without the HTML documents of
+       content.out</p>
     </p:documentation>
   </p:output>
 
@@ -63,14 +71,6 @@
   <!--   </p:documentation> -->
   <!-- </p:option> -->
 
-  <p:option name="aural-css" required="false" px:type="anyURI" select="''">
-    <p:documentation xmlns="http://www.w3.org/1999/xhtml">
-      <h2 px:role="name">Aural CSS sheet</h2>
-      <p px:role="desc">Path of an additional Aural CSS stylesheet for
-      the Text-To-Speech.</p>
-    </p:documentation>
-  </p:option>
-
   <p:option name="ssml-of-lexicons-uris" required="false" px:type="anyURI" select="''">
     <p:documentation xmlns="http://www.w3.org/1999/xhtml">
       <h2 px:role="name">Lexicons SSML pointers</h2>
@@ -92,18 +92,59 @@
   <p:import href="http://www.daisy.org/pipeline/modules/html-break-detection/library.xpl"/>
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
 
-  <p:variable name="xpath-sub" select="concat('concat(''', $anti-conflict-prefix, ''',.)')"/>
+  <p:variable name="fileset-base" select="base-uri(/*)">
+    <p:pipe port="fileset.in" step="main"/>
+  </p:variable>
+
+  <p:for-each name="html-filter">
+    <p:output port="html" sequence="true" primary="true">
+      <p:pipe port="html" step="is.html"/>
+    </p:output>
+    <p:output port="non-html" sequence="true">
+      <p:pipe port="non-html" step="is.html"/>
+    </p:output>
+    <p:iteration-source>
+      <p:pipe port="in-memory.in" step="main"/>
+    </p:iteration-source>
+    <p:variable name="doc-uri" select="base-uri(/*)"/>
+    <p:choose name="is.html">
+      <p:xpath-context>
+	<p:pipe port="fileset.in" step="main"/>
+      </p:xpath-context>
+      <p:when test="//*[@media-type='application/xhtml+xml' and resolve-uri(@href, $fileset-base)=$doc-uri]">
+	<p:output port="html">
+	  <p:pipe port="result" step="id"/>
+	</p:output>
+	<p:output port="non-html">
+	  <p:empty/>
+	</p:output>
+	<p:identity name="id"/>
+      </p:when>
+      <p:otherwise>
+	<p:output port="html">
+	  <p:empty/>
+	</p:output>
+	<p:output port="non-html">
+	  <p:pipe port="result" step="id"/>
+	</p:output>
+	<p:identity name="id"/>
+      </p:otherwise>
+    </p:choose>
+  </p:for-each>
 
   <p:choose name="synthesize">
     <!-- ====== TTS OFF ====== -->
     <p:when test="$audio = 'false'">
+      <p:xpath-context>
+	<p:empty/>
+      </p:xpath-context>
       <p:output port="audio-map">
 	<p:inline>
 	  <d:audio-clips/>
 	</p:inline>
       </p:output>
       <p:output port="content.out" primary="true" sequence="true">
-	<p:pipe port="content.in" step="main"/>
+	<p:pipe port="html" step="html-filter"/>
       </p:output>
       <p:output port="sentence-ids" sequence="true">
 	<p:empty/>
@@ -117,107 +158,44 @@
 	<p:pipe port="result" step="to-audio"/>
       </p:output>
       <p:output port="content.out" primary="true" sequence="true">
-	<p:pipe port="result" step="lexing"/>
+	<p:pipe port="content.out" step="loop"/>
       </p:output>
       <p:output port="sentence-ids" sequence="true">
-	<p:pipe port="sentence-ids" step="lexing"/>
+	<p:pipe port="sentence-ids" step="loop"/>
       </p:output>
-
-      <!-- LEXING -->
-      <p:for-each name="lexing">
-	<p:iteration-source>
-	  <p:pipe port="content.in" step="main"/>
-	</p:iteration-source>
-	<p:output port="result" primary="true"/>
-	<p:output port="sentence-ids">
-	  <p:pipe port="sentence-ids" step="is.html"/>
+      <p:for-each name="loop">
+	<p:output port="ssml.out" primary="true" sequence="true">
+	  <p:pipe port="result" step="ssml-gen"/>
 	</p:output>
-	<p:choose name="is.html">
-	  <!-- TODO: use instead the fileset to know whether it's a Html document. -->
-	  <p:when test="namespace-uri(/*/*[1]) = 'http://www.w3.org/1999/xhtml'">
-	    <p:output port="result" primary="true">
-	      <p:pipe port="result" step="break"/>
-	    </p:output>
-	    <p:output port="sentence-ids">
-	      <p:pipe port="sentence-ids" step="break"/>
-	    </p:output>
-	    <px:html-break-detect name="break"/>
-	  </p:when>
-	  <p:otherwise>
-	    <p:output port="result" primary="true"/>
-	    <p:output port="sentence-ids">
-	      <p:inline>
-		<d:sentences/>
-	      </p:inline>
-	    </p:output>
-	    <p:identity/>
-	  </p:otherwise>
-	</p:choose>
-      </p:for-each>
-      <!-- TTS -->
-      <p:for-each name="for-each.content">
-	<p:output port="ssml.out" primary="true" sequence="true"/>
-	<p:split-sequence name="sentences">
-	  <p:input port="source">
+	<p:output port="content.out">
+	  <p:pipe port="result" step="rm-css"/>
+	</p:output>
+	<p:output port="sentence-ids">
+	  <p:pipe port="sentence-ids" step="lexing"/>
+	</p:output>
+	<px:html-break-detect name="lexing">
+	  <p:with-option name="id-prefix" select="concat($anti-conflict-prefix, p:iteration-position(), '-')"/>
+	</px:html-break-detect>
+	<px:epub3-to-ssml name="ssml-gen">
+	  <p:input port="content.in">
+	    <p:pipe port="result" step="lexing"/>
+	  </p:input>
+	  <p:input port="sentence-ids">
 	    <p:pipe port="sentence-ids" step="lexing"/>
 	  </p:input>
-	  <p:with-option name="test" select="concat('position()=', p:iteration-position())"/>
-	</p:split-sequence>
-	<p:group>
-	  <p:variable name="sentence-num" select="count(//*[@id])"/>
-	  <p:identity>
-	    <p:input port="source">
-	      <p:pipe port="current" step="for-each.content"/>
-	    </p:input>
-	  </p:identity>
-	  <px:message>
-	    <p:with-option name="message"
-			   select="concat('number of sentences for ', base-uri(/*) , ': ', $sentence-num)"/>
-	  </px:message>
-	  <p:choose>
-	    <p:when test="$sentence-num = 0">
-	      <p:output port="ssml.out" primary="true" sequence="true">
-		<p:empty/>
-	      </p:output>
-	      <p:sink/>
-	    </p:when>
-	    <p:otherwise>
-	      <p:output port="ssml.out" primary="true" sequence="true">
-	  	<p:pipe port="result" step="ssml-gen"/>
-	      </p:output>
-	      <px:epub3-to-ssml name="ssml-gen">
-	  	<p:input port="content.in">
-	  	  <p:pipe port="current" step="for-each.content"/>
-	  	</p:input>
-	  	<p:input port="sentence-ids">
-	  	  <p:pipe port="matched" step="sentences"/>
-	  	</p:input>
-	  	<p:input port="fileset.in">
-	  	  <p:pipe port="fileset.in" step="main"/>
-	  	</p:input>
-	  	<p:with-option name="css-sheet-uri" select="$aural-css"/>
-	  	<p:with-option name="ssml-of-lexicons-uris" select="$ssml-of-lexicons-uris"/>
-	      </px:epub3-to-ssml>
-	    </p:otherwise>
-	  </p:choose>
-	</p:group>
+	  <p:input port="fileset.in">
+	    <p:pipe port="fileset.in" step="main"/>
+	  </p:input>
+	  <p:with-option name="ssml-of-lexicons-uris" select="$ssml-of-lexicons-uris"/>
+	</px:epub3-to-ssml>
+	<px:remove-inline-css-speech name="rm-css">
+	  <p:input port="source">
+	    <p:pipe port="result" step="lexing"/>
+	  </p:input>
+	</px:remove-inline-css-speech>
       </p:for-each>
       <px:ssml-to-audio name="to-audio"/>
     </p:otherwise>
   </p:choose>
-
-  <p:string-replace name="audio-map" match="@idref">
-    <p:input port="source">
-      <p:pipe port="audio-map" step="synthesize"/>
-    </p:input>
-    <p:with-option name="replace" select="$xpath-sub"/>
-  </p:string-replace>
-
-  <p:string-replace name="enriched-files" match="@id">
-    <p:input port="source">
-      <p:pipe port="content.out" step="synthesize"/>
-    </p:input>
-    <p:with-option name="replace" select="$xpath-sub"/>
-  </p:string-replace>
 
 </p:declare-step>

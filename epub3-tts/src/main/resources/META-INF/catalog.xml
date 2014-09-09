@@ -7,5 +7,6 @@
   <nextCatalog catalog="org:daisy:pipeline:modules:html-break-detection"/>
   <nextCatalog catalog="org:daisy:pipeline:modules:epub3-to-ssml"/>
   <nextCatalog catalog="org:daisy:pipeline:modules:ssml-to-audio"/>
+  <nextCatalog catalog="org:daisy:pipeline:modules:css-speech"/> <!-- to remove the CSS attributes -->
 
 </catalog>
