@@ -6,7 +6,7 @@
 	       xmlns:ssml="http://www.w3.org/2001/10/synthesis"
 	       xmlns:tmp="http://www.daisy.org/ns/pipeline/tmp"
 	       xmlns:xml="http://www.w3.org/XML/1998/namespace"
-               script="../../main/resources/xml/skippable-to-ssml.xpl">
+               script="../../main/resources/xml/xproc/skippable-to-ssml.xpl">
 
 
   <x:script>
@@ -15,16 +15,16 @@
 		    xmlns:d="http://www.daisy.org/ns/pipeline/data"
 		    type="pxi:skippable-to-ssml-wrapper">
 
-      <p:import href="../../main/resources/xml/skippable-to-ssml.xpl"/>
-      <p:import href="../../main/resources/xml/clean-text.xpl"/>
+      <p:import href="../../main/resources/xml/xproc/skippable-to-ssml.xpl"/>
+      <p:import href="clean-text.xpl"/>
 
       <p:input port="source" primary="true"/>
       <p:output port="result" primary="true"/>
 
-      <pxi:skippable-to-ssml>
+      <px:skippable-to-ssml>
 	<p:with-option name="skippable-elements" select="'pagenum,noteref'"/>
 	<p:with-option name="style-ns" select="'http://www.daisy.org/ns/pipeline/tmp'"/>
-      </pxi:skippable-to-ssml>
+      </px:skippable-to-ssml>
 
       <p:wrap-sequence wrapper="all" wrapper-namespace="http://www.w3.org/2001/10/synthesis"/>
       <pxi:clean-text/>
@@ -48,7 +48,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:s>
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
@@ -74,7 +74,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:s>
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
@@ -100,10 +100,10 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:s>
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:s>
 	  </ssml:speak>
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p2" xml:lang="yy"><ssml:mark name="___p2"/>2<ssml:mark name="p2___"/></ssml:s>
+	    <ssml:s id="internal-holder-of-p2" xml:lang="yy"><ssml:mark name="___p2"/>2<ssml:mark name="p2___"/></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
@@ -127,7 +127,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-n1" xml:lang="en"><ssml:mark name="___n1"/>note1<ssml:mark name="n1___"/></ssml:s>
+	    <ssml:s id="internal-holder-of-n1" xml:lang="en"><ssml:mark name="___n1"/>note1<ssml:mark name="n1___"/></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
@@ -151,7 +151,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-n1" xml:lang="en"><ssml:mark name="___n1"/>cf. note<ssml:mark name="n1___"/></ssml:s>
+	    <ssml:s id="internal-holder-of-n1" xml:lang="en"><ssml:mark name="___n1"/>cfnote<ssml:mark name="n1___"/></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
@@ -177,7 +177,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx"><ssml:prosody volume="30"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:prosody></ssml:s>
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx"><ssml:prosody volume="30"><ssml:mark name="___p1"/>1<ssml:mark name="p1___"/></ssml:prosody></ssml:s>
 	  </ssml:speak>
 	</ssml:all>
       </x:document>
@@ -205,7 +205,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx">
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx">
 	      <ssml:prosody volume="30">
 		<ssml:prosody rate="10">
 		  <ssml:mark name="___p1"/>1<ssml:mark name="p1___"/>
@@ -245,7 +245,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx">
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx">
 	      <ssml:prosody volume="30">
 		<ssml:prosody rate="10">
 		  <ssml:mark name="___p1"/>1<ssml:mark name="p1___"/>
@@ -255,7 +255,7 @@
 	    </ssml:s>
 	  </ssml:speak>
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p2" xml:lang="xx">
+	    <ssml:s id="internal-holder-of-p2" xml:lang="xx">
 	      <ssml:prosody rate="10">
 		<ssml:mark name="___p2"/>2<ssml:mark name="p2___"/>
 	      </ssml:prosody>
@@ -291,7 +291,7 @@
       <x:document type="inline">
 	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p1" xml:lang="xx">
+	    <ssml:s id="internal-holder-of-p1" xml:lang="xx">
 	      <ssml:prosody volume="30">
 		<ssml:mark name="___p1"/>1<ssml:mark name="p1___"/>
 		<ssml:mark name="___p3"/>3<ssml:mark name="p3___"/>
@@ -299,10 +299,138 @@
 	    </ssml:s>
 	  </ssml:speak>
 	  <ssml:speak version="1.1">
-	    <ssml:s id="cousins-of-p2" xml:lang="yy">
+	    <ssml:s id="internal-holder-of-p2" xml:lang="yy">
 	      <ssml:prosody volume="30">
 		<ssml:mark name="___p2"/>2<ssml:mark name="p2___"/>
 	      </ssml:prosody>
+	    </ssml:s>
+	  </ssml:speak>
+	</ssml:all>
+      </x:document>
+    </x:expect>
+  </x:scenario>
+
+  <x:scenario label="Packets of skippable elements with unknown lang">
+    <x:call step="pxi:skippable-to-ssml-wrapper">
+      <x:input port="source">
+	<x:document type="inline">
+	  <dtbook xml:lang="zzz">
+	    <pagenum id="p1">1</pagenum>
+	    <pagenum id="p2">2</pagenum>
+	    <pagenum id="p3">3</pagenum>
+	    <pagenum id="p4">4</pagenum>
+	    <pagenum id="p5">5</pagenum>
+	    <pagenum id="p6">6</pagenum>
+	    <pagenum id="p7">7</pagenum>
+	    <pagenum id="p8">8</pagenum>
+	    <pagenum id="p9">9</pagenum>
+	    <pagenum id="p10">10</pagenum>
+	    <pagenum id="p11">11</pagenum>
+	    <pagenum id="p12">12</pagenum>
+	  </dtbook>
+        </x:document>
+      </x:input>
+    </x:call>
+    <x:context label="result">
+      <x:document type="port" port="result"/>
+    </x:context>
+    <x:expect label="skippable-free" type="compare">
+      <x:document type="inline">
+	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
+	  <ssml:speak version="1.1">
+	    <ssml:s id="internal-holder-of-p1" xml:lang="zzz">
+	      <ssml:mark name="___p1"/>1
+	      <ssml:mark name="p1___"/>
+	      <ssml:mark name="___p2"/>2
+	      <ssml:mark name="p2___"/>
+	      <ssml:mark name="___p3"/>3
+	      <ssml:mark name="p3___"/>
+	      <ssml:mark name="___p4"/>4
+	      <ssml:mark name="p4___"/>
+	      <ssml:mark name="___p5"/>5
+	      <ssml:mark name="p5___"/>
+	      <ssml:mark name="___p6"/>6
+	      <ssml:mark name="p6___"/>
+	      <ssml:mark name="___p7"/>7
+	      <ssml:mark name="p7___"/>
+	      <ssml:mark name="___p8"/>8
+	      <ssml:mark name="p8___"/>
+	      <ssml:mark name="___p9"/>9
+	      <ssml:mark name="p9___"/>
+	      <ssml:mark name="___p10"/>10
+	      <ssml:mark name="p10___"/>
+	    </ssml:s>
+	  </ssml:speak>
+	  <ssml:speak xmlns:ssml="http://www.w3.org/2001/10/synthesis" version="1.1">
+	    <ssml:s id="internal-holder-of-p11" xml:lang="zzz">
+	      <ssml:mark name="___p11"/>11
+	      <ssml:mark name="p11___"/>
+	      <ssml:mark name="___p12"/>12
+	      <ssml:mark name="p12___"/>
+	    </ssml:s>
+	  </ssml:speak>
+	</ssml:all>
+      </x:document>
+    </x:expect>
+  </x:scenario>
+
+  <x:scenario label="Packets of skippable elements with known lang">
+    <x:call step="pxi:skippable-to-ssml-wrapper">
+      <x:input port="source">
+	<x:document type="inline">
+	  <dtbook xml:lang="fr">
+	    <pagenum id="p1">1</pagenum>
+	    <pagenum id="p2">2</pagenum>
+	    <pagenum id="p3">3</pagenum>
+	    <pagenum id="p4">4</pagenum>
+	    <pagenum id="p5">5</pagenum>
+	    <pagenum id="p6">6</pagenum>
+	    <pagenum id="p7">7</pagenum>
+	    <pagenum id="p8">8</pagenum>
+	    <pagenum id="p9">9</pagenum>
+	    <pagenum id="p10">10</pagenum>
+	    <pagenum id="p11">11</pagenum>
+	    <pagenum id="p12">12</pagenum>
+	  </dtbook>
+        </x:document>
+      </x:input>
+    </x:call>
+    <x:context label="result">
+      <x:document type="port" port="result"/>
+    </x:context>
+    <x:expect label="skippable-free" type="compare">
+      <x:document type="inline">
+	<ssml:all xmlns="http://www.w3.org/2001/10/synthesis">
+	  <ssml:speak version="1.1">
+	    <ssml:s id="internal-holder-of-p1" xml:lang="fr">
+	      <ssml:mark name="___p1"/>page1
+	      <ssml:mark name="p1___"/>
+	      <ssml:mark name="___p2"/>page2
+	      <ssml:mark name="p2___"/>
+	      <ssml:mark name="___p3"/>page3
+	      <ssml:mark name="p3___"/>
+	      <ssml:mark name="___p4"/>page4
+	      <ssml:mark name="p4___"/>
+	      <ssml:mark name="___p5"/>page5
+	      <ssml:mark name="p5___"/>
+	      <ssml:mark name="___p6"/>page6
+	      <ssml:mark name="p6___"/>
+	      <ssml:mark name="___p7"/>page7
+	      <ssml:mark name="p7___"/>
+	      <ssml:mark name="___p8"/>page8
+	      <ssml:mark name="p8___"/>
+	      <ssml:mark name="___p9"/>page9
+	      <ssml:mark name="p9___"/>
+	      <ssml:mark name="___p10"/>page10
+	      <ssml:mark name="p10___"/>
+	    </ssml:s>
+	  </ssml:speak>
+	  <ssml:speak xmlns:ssml="http://www.w3.org/2001/10/synthesis" version="1.1">
+	    <ssml:s id="internal-holder-of-p11" xml:lang="fr">
+	      <ssml:mark name="___p11"/>page11
+	      <ssml:mark name="p11___"/>
+	      <ssml:mark name="___p12"/>page12
+	      <ssml:mark name="p12___"/>
 	    </ssml:s>
 	  </ssml:speak>
 	</ssml:all>

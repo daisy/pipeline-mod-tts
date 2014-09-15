@@ -73,7 +73,7 @@
 		<xsl:variable name="dict-entry" select="key('translate', local-name(current()), $dictionary)"/>
 		<xsl:variable name="text" select="current()//text()"/>
 		<xsl:variable name="new-text" select="if ($dict-entry) then
-	      					    (if ($text != '') then replace($text, '^(.)+$', $dict-entry/@say)
+	      					    (if ($text != '') then replace($text, '^(.+)$', $dict-entry/@say)
 	      					    else $dict-entry/@empty)
 	      					    else $text"/>
 		<xsl:choose>
