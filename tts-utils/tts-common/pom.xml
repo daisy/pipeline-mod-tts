@@ -37,30 +37,42 @@
       <artifactId>junit</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>xmlunit</groupId>
+      <artifactId>xmlunit</artifactId>
+      <version>1.5</version>
+      <scope>test</scope>
+    </dependency>
 
     <!-- For its TreeWriter -->
     <dependency>
       <groupId>org.daisy.libs</groupId>
       <artifactId>com.xmlcalabash</artifactId>
     </dependency>
-
+    <!-- For its XSLT compiler -->
+    <dependency>
+      <groupId>org.daisy.pipeline</groupId>
+      <artifactId>common-utils</artifactId>
+    </dependency>
     <!-- the TTS service interface uses XdmNode -->
     <dependency>
       <groupId>net.sf.saxon</groupId>
       <artifactId>Saxon-HE</artifactId>
     </dependency>
-
     <!-- For its Multimap. -->
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
-
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-
+     <!-- For the AudioBuffer -->
+    <dependency>
+      <groupId>org.daisy.pipeline.modules</groupId>
+      <artifactId>audio-common</artifactId>
+    </dependency>
   </dependencies>
 
 </project>

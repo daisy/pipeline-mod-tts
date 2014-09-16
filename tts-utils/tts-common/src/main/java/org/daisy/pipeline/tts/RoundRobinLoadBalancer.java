@@ -11,7 +11,8 @@ public class RoundRobinLoadBalancer implements LoadBalancer {
 	private List<Host> mHosts;
 
 	/**
-	 * @param hostlist the first host will be consider as the master host.
+	 * @param hostlist is the list of hosts. The first host will be considered
+	 *            as the master host.
 	 * @param syncPoint is used for locking when several threads attempt to call
 	 *            selectHost() with the same syncPoint.
 	 */

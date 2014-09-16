@@ -1,21 +1,21 @@
 package org.daisy.pipeline.tts.sapinative;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
 
 import javax.sound.sampled.AudioFormat;
 
 import net.sf.saxon.s9api.XdmNode;
 
+import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AbstractTTSService;
-import org.daisy.pipeline.tts.BasicSSMLAdapter;
+import org.daisy.pipeline.tts.AudioBufferAllocator;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.SSMLAdapter;
-import org.daisy.pipeline.tts.SSMLUtil;
-import org.daisy.pipeline.tts.SoundUtil;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.Voice;
 
 public class SAPINative extends AbstractTTSService {
@@ -30,24 +30,11 @@ public class SAPINative extends AbstractTTSService {
 		long connection;
 	}
 
-	public void onBeforeOneExecution() throws SynthesisException {
+	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
 		if (mFirstInit) {
 			System.loadLibrary("sapinative");
 			mFirstInit = false;
 		}
-
-		mSSMLAdapter = new BasicSSMLAdapter() {
-			//note: the <s> element is already provided by the XdmNode
-			@Override
-			public String getHeader(String voiceName) {
-				return "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\">";
-			}
-
-			@Override
-			public String getFooter() {
-				return super.getFooter() + "</speak>";
-			}
-		};
 
 		mSampleRate = Integer.valueOf(System.getProperty("sapi.samplerate", "22050"));
 		mBytesPerSample = Integer.valueOf(System.getProperty("sapi.bytespersample", "2"));
@@ -68,38 +55,29 @@ public class SAPINative extends AbstractTTSService {
 		}
 
 		Voice voice = new Voice(vendors[0], names[0]);
-		String text = mSSMLAdapter.getHeader(voice.name) + "text <mark name=\"" + endingMark()
-		        + "\"/>" + mSSMLAdapter.getFooter();
-		RawAudioBuffer testBuffer = new RawAudioBuffer();
-		testBuffer.offsetInOutput = 0;
-		testBuffer.output = new byte[16];
-		ThreadResource r = (ThreadResource) allocateThreadResources();
-		List<Entry<String, Integer>> marks = new ArrayList<Entry<String, Integer>>();
-		synthesize(text, voice, testBuffer, r, marks);
-		releaseThreadResources(r);
-		if (testBuffer.offsetInOutput < 500) {
+		String text = mSSMLAdapter.getHeader(voice.name) + "text" + mSSMLAdapter.getFooter();
+
+		Throwable t = TTSServiceUtil.testTTS(this, voice, text);
+
+		if (t != null) {
 			throw new SynthesisException(
-			        "SAPI's output is too small to be audio when processing " + text);
-		}
-		if (marks.size() == 0 || !endingMark().equals(marks.get(0).getKey())) {
-			throw new SynthesisException(
-			        "SAPI's did not output the ending SSML mark as expected.");
+			        "SAPI's output is too small to be audio when processing " + text, t);
 		}
 	}
 
 	@Override
-	public void synthesize(XdmNode ssml, Voice voice, RawAudioBuffer audioBuffer,
-	        Object resource, List<Entry<String, Integer>> marks, boolean retry)
-	        throws SynthesisException {
+	public Collection<AudioBuffer> synthesize(String ssml, XdmNode xmlSSML, Voice voice,
+	        TTSResource resource, List<Mark> marks, AudioBufferAllocator bufferAllocator,
+	        boolean retry) throws SynthesisException, InterruptedException, MemoryException {
 
-		ThreadResource tr = (ThreadResource) resource;
-		String text = SSMLUtil.toString(ssml, voice.name, mSSMLAdapter, endingMark());
-		synthesize(text, voice, audioBuffer, tr, marks);
+		return speak(ssml, voice, resource, marks, bufferAllocator);
 	}
 
-	private void synthesize(String ssml, Voice voice, RawAudioBuffer audioBuffer,
-	        ThreadResource tr, List<Entry<String, Integer>> marks) throws SynthesisException {
+	public Collection<AudioBuffer> speak(String ssml, Voice voice, TTSResource resource,
+	        List<Mark> marks, AudioBufferAllocator bufferAllocator) throws SynthesisException,
+	        MemoryException {
 
+		ThreadResource tr = (ThreadResource) resource;
 		int res = SAPILib.speak(tr.connection, voice.vendor, voice.name, ssml);
 		if (res != 0) {
 			throw new SynthesisException("SAPI speak error number " + res + " with voice "
@@ -107,20 +85,19 @@ public class SAPINative extends AbstractTTSService {
 		}
 
 		int size = SAPILib.getStreamSize(tr.connection);
-		if (size > (audioBuffer.output.length - audioBuffer.offsetInOutput)) {
-			SoundUtil.realloc(audioBuffer, size);
-		}
 
-		audioBuffer.offsetInOutput = SAPILib.readStream(tr.connection, audioBuffer.output,
-		        audioBuffer.offsetInOutput);
+		AudioBuffer result = bufferAllocator.allocateBuffer(size);
+		SAPILib.readStream(tr.connection, result.data, result.size);
 
 		String[] names = SAPILib.getBookmarkNames(tr.connection);
 		long[] pos = SAPILib.getBookmarkPositions(tr.connection);
 
 		for (int i = 0; i < names.length; ++i) {
 			int offset = (int) ((pos[i] * mSampleRate * mBytesPerSample) / 1000);
-			marks.add(new AbstractMap.SimpleEntry<String, Integer>(names[i], offset));
+			marks.add(new Mark(names[i], offset));
 		}
+
+		return Arrays.asList(result);
 	}
 
 	@Override
@@ -147,7 +124,7 @@ public class SAPINative extends AbstractTTSService {
 	}
 
 	@Override
-	public void releaseThreadResources(Object resource) {
+	public void releaseThreadResources(TTSResource resource) {
 		ThreadResource tr = (ThreadResource) resource;
 		SAPILib.closeConnection(tr.connection);
 	}

@@ -18,12 +18,16 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 
-import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.XdmNode;
 
 import org.daisy.common.shell.BinaryFinder;
-import org.daisy.pipeline.tts.BasicSSMLAdapter;
-import org.daisy.pipeline.tts.MarkFreeTTSService;
-import org.daisy.pipeline.tts.SSMLAdapter;
+import org.daisy.pipeline.audio.AudioBuffer;
+import org.daisy.pipeline.tts.AbstractTTSService;
+import org.daisy.pipeline.tts.AudioBufferAllocator;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
+import org.daisy.pipeline.tts.SoundUtil;
+import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.Voice;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,17 +41,16 @@ import com.google.common.base.Optional;
  * name=...>), depending on how the connectors (SAPI etc.) manage the eSpeak
  * voices.
  */
-public class ESpeakBinTTS extends MarkFreeTTSService {
+public class ESpeakBinTTS extends AbstractTTSService {
 
 	private Logger mLogger = LoggerFactory.getLogger(ESpeakBinTTS.class);
 
 	private AudioFormat mAudioFormat;
 	private String[] mCmd;
-	private SSMLAdapter mSSMLAdapter;
 	private String mEspeakPath;
 	private final static int MIN_CHUNK_SIZE = 2048;
 
-	public void onBeforeOneExecution() throws SynthesisException {
+	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
 		final String property = "espeak.path";
 		mEspeakPath = System.getProperty(property);
 		if (mEspeakPath == null) {
@@ -61,28 +64,6 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 
 		mLogger.info("Will use eSpeak binary: " + mEspeakPath);
 
-		mSSMLAdapter = new BasicSSMLAdapter() {
-			@Override
-			public String getHeader(String voiceName) {
-				if (voiceName == null || voiceName.isEmpty()) {
-					return "<voice>";
-				}
-				return "<voice name=\"" + voiceName + "\">";
-			}
-
-			@Override
-			public String getFooter() {
-				return "</voice>" + super.getFooter();
-			}
-
-			@Override
-			public QName adaptElement(QName elementName) {
-				if (elementName.getLocalName().equals("mark"))
-					return null;
-				return super.adaptElement(elementName);
-			}
-		};
-
 		// '-m' tells eSpeak to interpret the input as SSML
 		// '--stdout' tells eSpeak to print the result on the standard output
 		// '--stdin' tells eSpeak to read the SSML from the standard input. It prevents it
@@ -93,19 +74,10 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 
 		//Test the synthesizer so that the service won't be active if it fails.
 		//It sets mAudioFormat too.
-		List<RawAudioBuffer> li = new ArrayList<RawAudioBuffer>();
 		mAudioFormat = null;
-		Object r = allocateThreadResources();
-		try {
-			synthesize(mSSMLAdapter.getHeader(null) + "test" + mSSMLAdapter.getFooter(), null,
-			        r, li);
-		} catch (InterruptedException e) {
-			throw new SynthesisException(e);
-		} finally {
-			releaseThreadResources(r);
-		}
-		if (li.get(0).offsetInOutput <= 500) {
-			throw new SynthesisException("eSpeak did not output audio.");
+		Throwable t = TTSServiceUtil.testTTS(this, "test");
+		if (t != null) {
+			throw new SynthesisException(t);
 		}
 	}
 
@@ -128,7 +100,6 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 	public void onAfterOneExecution() {
 		mAudioFormat = null;
 		mCmd = null;
-		mSSMLAdapter = null;
 		mEspeakPath = null;
 		super.onAfterOneExecution();
 	}
@@ -139,11 +110,12 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 	}
 
 	@Override
-	public Collection<Voice> getAvailableVoices() throws SynthesisException {
+	public Collection<Voice> getAvailableVoices() throws SynthesisException,
+	        InterruptedException {
 		Collection<Voice> result;
 		InputStream is;
 		Process proc = null;
-		Scanner scanner;
+		Scanner scanner = null;
 		Matcher mr;
 		try {
 			//First: get the list of all the available languages
@@ -184,31 +156,37 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 				proc.waitFor();
 			}
 
+		} catch (InterruptedException e) {
+			if (proc != null) {
+				proc.destroy();
+			}
+			throw e;
 		} catch (Exception e) {
 			if (proc != null) {
 				proc.destroy();
 			}
 			throw new SynthesisException(e.getMessage(), e.getCause());
+		} finally {
+			if (scanner != null)
+				scanner.close();
 		}
 
 		return result;
 	}
 
 	@Override
-	public SSMLAdapter getSSMLAdapter() {
-		return mSSMLAdapter;
-	}
-
-	@Override
-	public void synthesize(String ssml, Voice voice, Object threadResources,
-	        List<RawAudioBuffer> output) throws SynthesisException, InterruptedException {
+	public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
+	        Voice voice, TTSResource threadResources, List<Mark> marks,
+	        AudioBufferAllocator bufferAllocator, boolean retry) throws SynthesisException,
+	        InterruptedException, MemoryException {
+		Collection<AudioBuffer> result = new ArrayList<AudioBuffer>();
 		Process p = null;
 		try {
 			p = Runtime.getRuntime().exec(mCmd);
 
 			//write the SSML
 			BufferedOutputStream out = new BufferedOutputStream((p.getOutputStream()));
-			out.write(ssml.getBytes("utf-8"));
+			out.write(sentence.getBytes("utf-8"));
 			out.close();
 
 			//read the wave on the standard output
@@ -219,28 +197,39 @@ public class ESpeakBinTTS extends MarkFreeTTSService {
 				mAudioFormat = fi.getFormat();
 
 			while (true) {
-				RawAudioBuffer b = new RawAudioBuffer();
-				int toread = MIN_CHUNK_SIZE + fi.available();
-				b.output = new byte[toread];
-				b.offsetInOutput = fi.read(b.output, 0, toread);
-				if (b.offsetInOutput == -1)
+				AudioBuffer b = bufferAllocator
+				        .allocateBuffer(MIN_CHUNK_SIZE + fi.available());
+				int ret = fi.read(b.data, 0, b.size);
+				if (ret == -1) {
+					//note: perhaps it would be better to call allocateBuffer()
+					//somewhere else in order to avoid this extra call:
+					bufferAllocator.releaseBuffer(b);
 					break;
-				output.add(b);
+				}
+				b.size = ret;
+				result.add(b);
 			}
-
 			fi.close();
 			p.waitFor();
+		} catch (MemoryException e) {
+			SoundUtil.cancelFootPrint(result, bufferAllocator);
+			p.destroy();
+			throw e;
 		} catch (InterruptedException e) {
+			SoundUtil.cancelFootPrint(result, bufferAllocator);
 			if (p != null)
 				p.destroy();
 			throw e;
 		} catch (Exception e) {
+			SoundUtil.cancelFootPrint(result, bufferAllocator);
 			StringWriter sw = new StringWriter();
 			e.printStackTrace(new PrintWriter(sw));
 			if (p != null)
 				p.destroy();
 			throw new SynthesisException(e.getMessage() + " text: "
-			        + ssml.substring(0, Math.min(ssml.length(), 100)) + "...", e);
+			        + sentence.substring(0, Math.min(sentence.length(), 100)) + "...", e);
 		}
+
+		return result;
 	}
 }

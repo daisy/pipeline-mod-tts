@@ -5,14 +5,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 
-import org.daisy.pipeline.tts.TTSService.RawAudioBuffer;
+import org.daisy.pipeline.audio.AudioBuffer;
+import org.daisy.pipeline.tts.AudioBufferAllocator;
+import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
+import org.daisy.pipeline.tts.StraightBufferAllocator;
+import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.acapela.AcapelaTTS.ThreadResources;
@@ -23,10 +25,13 @@ import org.junit.Test;
 
 /**
  * Before running those tests, you must start an Acapela server and have
- * libscube.so in your library path.
+ * libscube.so in your library path. Run mvn test with -Djna.nosys=true and the
+ * adequate profile (probably -Ptester).
  */
 public class AcapelaTest {
 	AcapelaTTS tts;
+
+	static AudioBufferAllocator BufferAllocator = new StraightBufferAllocator();
 
 	private String format(String str) {
 		return str;
@@ -36,8 +41,18 @@ public class AcapelaTest {
 		return "\\voice{" + speakerName + "}" + str;
 	}
 
+	static private int getSize(Collection<AudioBuffer> buffers) {
+		if (buffers == null)
+			return -1;
+		int size = 0;
+		for (AudioBuffer b : buffers) {
+			size += b.size;
+		}
+		return size;
+	}
+
 	@Before
-	public void setUp() throws SynthesisException {
+	public void setUp() throws SynthesisException, InterruptedException {
 		tts = new AcapelaTTS();
 		tts.onBeforeOneExecution();
 	}
@@ -48,67 +63,79 @@ public class AcapelaTest {
 	}
 
 	@Test
-	public void simpleConnection() throws SynthesisException {
-		Object r = tts.allocateThreadResources();
-		tts.releaseThreadResources(r);
+	public void simpleConnection() throws SynthesisException, InterruptedException {
+		tts.releaseThreadResources(tts.allocateThreadResources());
 	}
 
 	@Test
-	public void getVoiceNames() throws SynthesisException {
+	public void getVoiceNames() throws SynthesisException, InterruptedException {
 		Collection<Voice> voices = tts.getAvailableVoices();
 		Assert.assertTrue(voices.size() > 0);
 	}
 
 	@Test
-	public void speakEasy() throws SynthesisException {
+	public void speakEasy() throws SynthesisException, InterruptedException, MemoryException {
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
 
-		RawAudioBuffer buffer = new RawAudioBuffer(1);
-		tts.synthesize(format("this is a test"), buffer, r, null);
+		int size = getSize(tts.speak(format("this is a test"), r, null, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(buffer.offsetInOutput > 2000);
+		Assert.assertTrue(size > 2000);
 	}
 
-	@Test
-	public void oneBookmark() throws SynthesisException, IOException {
+	public void simpleBookmark(String bookmark) throws SynthesisException, MemoryException,
+	        InterruptedException {
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-		r.idsToMark = Arrays.asList("bmark1", "bmark2", "bmark3");
 
-		List<Entry<String, Integer>> l = new ArrayList<Entry<String, Integer>>();
-		RawAudioBuffer buffer = new RawAudioBuffer(1);
+		List<Mark> l = new ArrayList<Mark>();
 
-		int bmark = 1;
 		String text = "A piece of text long enough.";
-		tts.synthesize(format(text + "<mark name=\"" + bmark + "\"/>" + text), buffer, r, l);
+		int size = getSize(tts.speak(format(text + "<mark name=\"" + bookmark + "\"></mark>"
+		        + text), r, l, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(buffer.offsetInOutput > 2000);
+		Assert.assertTrue(size > 2000);
 		Assert.assertTrue(1 == l.size());
-		Assert.assertEquals(r.idsToMark.get(bmark), l.get(0).getKey());
-
-		Assert.assertTrue(Math.abs(buffer.offsetInOutput / 2 - l.get(0).getValue()) < 5000); //the mark is around the middle
+		Assert.assertEquals(bookmark, l.get(0).name);
+		Assert.assertTrue(Math.abs(size / 2 - l.get(0).offsetInAudio) < 5000); //the mark is around the middle
 	}
 
 	@Test
-	public void twoBookmarks() throws SynthesisException {
+	public void oneBookmark() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
+		simpleBookmark("bmark");
+	}
+
+	@Test
+	public void endingBookmark() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
+		simpleBookmark(tts.endingMark());
+	}
+
+	@Test
+	public void hardBookmark() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
+		simpleBookmark("___bmark-999___");
+	}
+
+	@Test
+	public void twoBookmarks() throws SynthesisException, InterruptedException,
+	        MemoryException {
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-		r.idsToMark = Arrays.asList("bmark1", "bmark2", "bmark3");
 
-		List<Entry<String, Integer>> l = new ArrayList<Entry<String, Integer>>();
-		RawAudioBuffer buffer = new RawAudioBuffer(1);
-		Integer bmark1 = 1;
-		Integer bmark2 = 2;
+		List<Mark> l = new ArrayList<Mark>();
+		String bmark1 = "1";
+		String bmark2 = "2";
 
-		tts.synthesize(format("one two three four <mark name=\"" + bmark1
-		        + "\"/> five <mark name=\"" + bmark2 + "\"/>"), buffer, r, l);
+		int size = getSize(tts.speak(format("one two three four <mark name=\"" + bmark1
+		        + "\"/> five <mark name=\"" + bmark2 + "\"/>"), r, l, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(buffer.offsetInOutput > 200);
+		Assert.assertTrue(size > 200);
 		Assert.assertTrue(2 == l.size());
-		Assert.assertEquals(r.idsToMark.get(bmark1), l.get(0).getKey());
-		Assert.assertEquals(r.idsToMark.get(bmark2), l.get(1).getKey());
-		Assert.assertTrue(l.get(1).getValue() - l.get(0).getValue() < l.get(0).getValue());
+		Assert.assertEquals(bmark1, l.get(0).name);
+		Assert.assertEquals(bmark2, l.get(1).name);
+		Assert.assertTrue(l.get(1).offsetInAudio - l.get(0).offsetInAudio < l.get(0).offsetInAudio);
 	}
 
 	private int[] findSize(final String[] sentences, int startShift)
@@ -124,12 +151,10 @@ public class AcapelaTest {
 					ThreadResources r;
 					try {
 						r = (ThreadResources) tts.allocateThreadResources();
-						RawAudioBuffer buffer = new RawAudioBuffer(1);
-						tts.synthesize(format("this is a test"), buffer, r, null);
-						foundSize[j] = buffer.offsetInOutput / 4;
-
+						foundSize[j] = getSize(tts.speak(format("this is a test"), r, null,
+						        BufferAllocator)) / 4;
 						tts.releaseThreadResources(r);
-					} catch (SynthesisException e) {
+					} catch (SynthesisException | InterruptedException | MemoryException e) {
 						return;
 					}
 				}
@@ -164,7 +189,7 @@ public class AcapelaTest {
 	}
 
 	@Test
-	public void multiVoices() throws SynthesisException {
+	public void multiVoices() throws SynthesisException, InterruptedException, MemoryException {
 		Collection<Voice> voices = tts.getAvailableVoices();
 		Assert.assertTrue(voices.size() > 0);
 
@@ -172,9 +197,9 @@ public class AcapelaTest {
 
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
 		for (Voice v : voices) {
-			RawAudioBuffer buffer = new RawAudioBuffer(1);
-			tts.synthesize(format("this is a test", v.name), buffer, r, null);
-			sizes.add(buffer.offsetInOutput / 4);
+			int size = getSize(tts.speak(format("this is a test", v.name), r, null,
+			        BufferAllocator));
+			sizes.add(size / 4);
 		}
 		tts.releaseThreadResources(r);
 
@@ -183,7 +208,8 @@ public class AcapelaTest {
 	}
 
 	@Test
-	public void accents() throws SynthesisException, IOException {
+	public void accents() throws SynthesisException, IOException, InterruptedException,
+	        MemoryException {
 		String withAccents = "à Noël, la tèrre est bèlle vûe du cièl";
 		String withoutAccents = "a Noel, la terre est belle vue du ciel";
 
@@ -191,23 +217,21 @@ public class AcapelaTest {
 		//As a result, the output audio buffer will be longer than expected. 
 
 		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-		RawAudioBuffer buffer1 = new RawAudioBuffer(1);
-		tts.synthesize(format("<s xml:lang=\"fr\">" + withAccents + "</s>"), buffer1, r, null);
+		int size1 = getSize(tts.speak(format("<s xml:lang=\"fr\">" + withAccents + "</s>"), r,
+		        null, BufferAllocator));
 		tts.releaseThreadResources(r);
 
 		r = (ThreadResources) tts.allocateThreadResources();
-		RawAudioBuffer buffer2 = new RawAudioBuffer(1);
-		tts.synthesize(format("<s xml:lang=\"fr\">" + withoutAccents + "</s>"), buffer2, r,
-		        null);
+		int size2 = getSize(tts.speak(format("<s xml:lang=\"fr\">" + withoutAccents + "</s>"),
+		        r, null, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(buffer1.offsetInOutput > 2000);
-
-		Assert.assertTrue(Math.abs(buffer1.offsetInOutput - buffer2.offsetInOutput) < 2000);
+		Assert.assertTrue(size1 > 2000);
+		Assert.assertTrue(Math.abs(size1 - size2) < 2000);
 	}
 
 	@Test
-	public void utf8chars() throws SynthesisException {
+	public void utf8chars() throws SynthesisException, InterruptedException, MemoryException {
 		List<Character> chars = new ArrayList<Character>();
 		chars.add("a".charAt(0)); //for the reference test
 
@@ -230,25 +254,24 @@ public class AcapelaTest {
 
 		//test every character individually
 		String begin = "<s>begin ";
-		String end = " this is the end of the sentence long enough for tests<mark name=\"0\"></s>";
+		String end = " this is the end of the sentence long enough for tests<mark name=\"end\"></s>";
 		Integer refSize = null;
 
 		for (Character c : chars) {
 			ThreadResources r = (ThreadResources) tts.allocateThreadResources();
-			r.idsToMark = Arrays.asList("end");
-			List<Entry<String, Integer>> l = new ArrayList<Entry<String, Integer>>();
-			RawAudioBuffer buffer = new RawAudioBuffer(1);
+			List<Mark> l = new ArrayList<Mark>();
 
-			tts.synthesize(format(begin + c + end, "alice"), buffer, r, l);
+			int size = getSize(tts.speak(format(begin + c + end, "alice"), r, l,
+			        BufferAllocator));
 			tts.releaseThreadResources(r);
 
 			Assert.assertTrue(1 == l.size());
 
 			if (refSize == null) {
-				refSize = new Integer(buffer.offsetInOutput);
+				refSize = new Integer(size);
 			}
 
-			Assert.assertTrue(2 * refSize / 3 - buffer.offsetInOutput < 0);
+			Assert.assertTrue(2 * refSize / 3 - size < 0);
 		}
 
 	}

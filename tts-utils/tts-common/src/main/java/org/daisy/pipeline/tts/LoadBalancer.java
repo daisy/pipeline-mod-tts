@@ -14,7 +14,7 @@ public interface LoadBalancer {
 	}
 
 	/**
-	 * Can be called in from different threads.
+	 * Can be called from different threads.
 	 * 
 	 * @return the next host chosen according to the load balancer's strategy.
 	 */
@@ -31,7 +31,7 @@ public interface LoadBalancer {
 	Collection<Host> getAllHosts();
 
 	/**
-	 * Can be called in from different threads.
+	 * Can be called from different threads.
 	 * 
 	 * @return the host that should be used for querying general information
 	 *         such as the available voices etc.
