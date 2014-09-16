@@ -13,12 +13,11 @@
     <p:input port="fileset.in" sequence="false"/>
     <p:input port="content.in" primary="true" sequence="false"/>
     <p:input port="sentence-ids" sequence="false"/>
+    <p:input port="config"/>
 
     <p:output port="result" primary="true" sequence="true">
       <p:pipe port="result" step="ssml-gen" />
     </p:output>
-
-    <p:option name="ssml-of-lexicons-uris" required="false" select="''"/>
 
     <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
     <p:import href="http://www.daisy.org/pipeline/modules/text-to-ssml/library.xpl" />
@@ -33,11 +32,13 @@
       <p:input port="sentence-ids">
 	<p:pipe port="sentence-ids" step="main"/>
       </p:input>
+      <p:input port="config">
+	<p:pipe port="config" step="main"/>
+      </p:input>
       <p:with-option name="section-elements" select="'body'"/>
       <p:with-option name="word-element" select="'span'"/>
       <p:with-option name="word-attr" select="'role'"/>
       <p:with-option name="word-attr-val" select="'word'"/>
-      <p:with-option name="ssml-of-lexicons-uris" select="$ssml-of-lexicons-uris"/>
     </px:text-to-ssml>
 
     <px:message message="End SSML generation for EPUB3"/>

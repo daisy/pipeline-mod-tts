@@ -19,6 +19,15 @@
     </p:documentation>
   </p:input>
 
+  <p:input port="config">
+    <p:documentation xmlns="http://www.w3.org/1999/xhtml">
+      <h2 px:role="name">Text-To-Speech configuration file</h2>
+      <p px:role="desc">Configuration file that contains Text-To-Speech
+      properties, links to aural CSS stylesheets and links to PLS
+      lexicons.</p>
+    </p:documentation>
+  </p:input>
+
   <p:output port="audio-map">
     <p:pipe port="audio-map" step="synthesize"/>
     <p:documentation xmlns="http://www.w3.org/1999/xhtml">
@@ -186,7 +195,9 @@
 	  <p:input port="fileset.in">
 	    <p:pipe port="fileset.in" step="main"/>
 	  </p:input>
-	  <p:with-option name="ssml-of-lexicons-uris" select="$ssml-of-lexicons-uris"/>
+	  <p:input port="config">
+	    <p:pipe port="config" step="main"/>
+	  </p:input>
 	</px:epub3-to-ssml>
 	<px:remove-inline-css-speech name="rm-css">
 	  <p:input port="source">
@@ -194,7 +205,11 @@
 	  </p:input>
 	</px:remove-inline-css-speech>
       </p:for-each>
-      <px:ssml-to-audio name="to-audio"/>
+      <px:ssml-to-audio name="to-audio">
+	<p:input port="config">
+	  <p:pipe port="config" step="main"/>
+	</p:input>
+      </px:ssml-to-audio>
     </p:otherwise>
   </p:choose>
 
