@@ -9,7 +9,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -252,24 +251,23 @@ public class VoiceManager {
 			registerVoice(mVoiceLangOnly, voiceInfo.language, voiceInfo.voice);
 		}
 
-		//Create a map of the best fallback voices for each language (not taking into account the
-		//gender, that says, voice quality is more important than gender, as gender usually aims at
-		//distinguishing between characters)
-		for (Map.Entry<VoiceKey, Voice> e : mVoiceVendorMissing.entrySet()) {
-			Locale lang = e.getKey().lang;
-			Voice bestVoice = e.getValue();
-			VoiceInfo vi = new VoiceInfo(bestVoice, lang, e.getKey().gender);
-			Iterator<VoiceInfo> it = VoicePriorities
-			        .listIterator(VoicePriorities.indexOf(vi) + 1);
-			while (it.hasNext()) {
-				vi = it.next();
-				if (vi.language.equals(lang) && !vi.voice.vendor.equals(bestVoice.vendor)
-				        && mBestServices.containsKey(vi.voice)) {
-					mSecondVoices.put(bestVoice, vi.voice);
-					break;
-				}
-			}
+		/*
+		 * Create a map of the best fallback voices for each language. Vendor is
+		 * more important than priority and gender. Gender is more important
+		 * than priority.
+		 */
+		List<VoiceInfo> sortedVoices = new ArrayList<VoiceInfo>();
+		int[] indexes = new int[VoicePriorities.size()];
+		for (int i = 0; i < VoicePriorities.size(); ++i) {
+			VoiceInfo vi = VoicePriorities.get(i);
+			if (mBestServices.containsKey(vi.voice))
+				sortedVoices.add(vi);
+			indexes[i] = sortedVoices.size();
 		}
+		setSecondVoices(sortedVoices, indexes, true, true);
+		setSecondVoices(sortedVoices, indexes, true, false);
+		setSecondVoices(sortedVoices, indexes, false, true);
+		setSecondVoices(sortedVoices, indexes, false, false);
 
 		//log the available voices
 		StringBuilder sb = new StringBuilder("Available voices:");
@@ -344,6 +342,12 @@ public class VoiceManager {
 			if (mBestServices.containsKey(preferredVoice)) {
 				exactMatch[0] = true;
 				return preferredVoice;
+			} else {
+				Voice fallback = findSecondaryVoice(preferredVoice);
+				if (fallback != null) {
+					exactMatch[0] = false;
+					return fallback;
+				}
 			}
 		}
 
@@ -378,6 +382,25 @@ public class VoiceManager {
 
 		exactMatch[0] = (voiceName == null && voiceVendor == null && gender == null);
 		return searchVoice(mVoiceLangOnly, loc, shortLoc);
+	}
+
+	private void setSecondVoices(List<VoiceInfo> sortedAvailableVoices, int[] indexes,
+	        boolean sameVendor, boolean sameGender) {
+		for (int i = 0; i < VoicePriorities.size(); ++i) {
+			VoiceInfo bestVoice = VoicePriorities.get(i);
+			if (!mSecondVoices.containsKey(bestVoice)) {
+				for (int j = indexes[i]; j < sortedAvailableVoices.size(); ++j) {
+					VoiceInfo fallback = sortedAvailableVoices.get(j);
+					if (fallback.language.equals(bestVoice.language)
+					        && (!sameGender || fallback.gender.equals(bestVoice.gender))
+					        && (!sameVendor || fallback.voice.vendor
+					                .equals(bestVoice.voice.vendor))) {
+						mSecondVoices.put(bestVoice.voice, fallback.voice);
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	private static String getStack(Throwable t) {

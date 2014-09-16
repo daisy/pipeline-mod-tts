@@ -4,7 +4,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 
 import javax.sound.sampled.AudioFormat;
 
@@ -16,6 +18,7 @@ import net.sf.saxon.s9api.XdmNode;
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.junit.Before;
 import org.junit.Test;
 
 public class TTSRegistryTest {
@@ -76,6 +79,18 @@ public class TTSRegistryTest {
 		return vendor + ":" + name;
 	}
 
+	@Before
+	public void eraseProperties() {
+		HashSet<Entry<Object, Object>> properties = new HashSet<Entry<Object, Object>>(System
+		        .getProperties().entrySet());
+		for (Entry<Object, Object> e : properties) {
+			String key = e.getKey().toString();
+			if (key.startsWith("priority.")) {
+				System.clearProperty(key);
+			}
+		}
+	}
+
 	@Test
 	public void simpleInit() throws MalformedURLException {
 		TTSRegistry registry = new TTSRegistry();
@@ -101,7 +116,7 @@ public class TTSRegistryTest {
 		boolean[] perfectMatch = new boolean[1];
 
 		Voice v = vm.findAvailableVoice("acapela", "claire", null, null, perfectMatch);
-		Assert.assertNull(v);
+		Assert.assertFalse(perfectMatch[0]);
 
 		v = vm.findAvailableVoice("acapela", "alice", null, null, perfectMatch);
 		Assert.assertTrue(perfectMatch[0]);
@@ -137,12 +152,15 @@ public class TTSRegistryTest {
 	public void onlyLanguage() throws MalformedURLException {
 		String vendor = "vendor";
 		String voiceName = "voice1";
+
+		String fullname0 = registerVoice("v2", "wrong-lang1", "fr", "male-adult", 15);
 		String fullname1 = registerVoice("v", "low-prio", "en", "male-adult", 5);
 		String fullname2 = registerVoice(vendor, voiceName, "en", "male-adult", 10);
+		String fullname3 = registerVoice("v2", "wrong-lang2", "fr", "male-adult", 15);
 
 		TTSRegistry registry = new TTSRegistry();
-		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
-		        fullname2));
+		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname0,
+		        fullname1, fullname2, fullname3));
 		VoiceManager vm = registry.openSynthesizingContext(Conf);
 
 		boolean[] exactMatch = new boolean[1];
@@ -336,7 +354,7 @@ public class TTSRegistryTest {
 	}
 
 	@Test
-	public void voiceFallback() throws MalformedURLException {
+	public void voiceFallback1() throws MalformedURLException {
 		String vendor1 = "vendor1";
 		String vendor2 = "vendor2";
 		String firstChoice = "voice1";
@@ -367,4 +385,30 @@ public class TTSRegistryTest {
 		registry.closeSynthesizingContext();
 	}
 
+	@Test
+	public void voiceFallback2() throws MalformedURLException {
+		String vendor = "vendor";
+		String wantedVoice = "voice1";
+		String availableVoice = "voice2";
+
+		registerVoice(vendor, wantedVoice, "en", "male-adult", 20);
+		String fullname1 = registerVoice(vendor, "wrong-voice1", "en", "male-adult", 10);
+		String fullname2 = registerVoice(vendor, availableVoice, "en", "male-adult", 20);
+		String fullname3 = registerVoice(vendor, "wrong-voice2", "en", "male-adult", 10);
+		String fullname4 = registerVoice("another-vendor", "wrong-voice3", "en", "male-adult",
+		        50);
+
+		TTSRegistry registry = new TTSRegistry();
+		registry.addTTS(new SimplifiedProcessor("/empty-ssml-adapter.xsl", fullname1,
+		        fullname2, fullname3, fullname4));
+		VoiceManager vm = registry.openSynthesizingContext(Conf);
+
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(vendor, wantedVoice, null, null, exactMatch);
+		Assert.assertFalse(exactMatch[0]);
+		Assert.assertNotNull(v);
+		Assert.assertEquals(availableVoice, v.name);
+
+		registry.closeSynthesizingContext();
+	}
 }
