@@ -17,7 +17,7 @@
   <packaging>bundle</packaging>
 
   <name>DAISY Pipeline 2 module :: TTS Adapter for Acapela</name>
-  <description>Implementation of the TTS API for Acapela Linux V7.300</description>
+  <description>Implementation of the TTS API for Acapela Linux V7.300 and V8.0</description>
 
   <dependencies>
     <dependency>

@@ -45,6 +45,7 @@ public class AcapelaTTS extends AbstractTTSService {
 	private int mMsPerWord;
 	private int mReserved = Integer.valueOf(System
 	        .getProperty("acapela.threads.reserved", "3"));
+	private String mWorkingVoice;
 
 	public static class ThreadResources extends TTSResource {
 		Pointer dispatcher;
@@ -111,6 +112,50 @@ public class AcapelaTTS extends AbstractTTSService {
 		};
 	}
 
+	String findWorkingVoice(Host h) throws SynthesisException {
+		if (h == null)
+			h = mLoadBalancer.getMaster();
+
+		String workingVoice = null;
+		NscubeLibrary lib = NscubeLibrary.INSTANCE;
+		Pointer server = createServerContext(mLoadBalancer.getMaster());
+
+		PointerByReference phDispatch = new PointerByReference();
+		int ret = lib.nscCreateDispatcher(phDispatch);
+		if (ret != NscubeLibrary.NSC_OK) {
+			lib.nscReleaseServerContext(server);
+			throw new SynthesisException(
+			        "Could not create one Acapela's dispatcher (err code: " + ret + ")");
+		}
+		Pointer dispatcher = phDispatch.getValue();
+
+		PointerByReference voiceEnumerator = new PointerByReference();
+		NSC_FINDVOICE_DATA voiceData = new NSC_FINDVOICE_DATA();
+		ret = lib.nscFindFirstVoice(server, (String) null, (int) mAudioFormat.getSampleRate(),
+		        0, 0, voiceData, voiceEnumerator);
+		while (ret == NscubeLibrary.NSC_OK) {
+			if (voiceData.nInitialCoding == NscubeLibrary.NSC_VOICE_ENCODING_PCM) {
+				String voiceName = nullTerminatedString(voiceData.cVoiceName);
+				NativeLongByReference pChId = new NativeLongByReference();
+				ret = lib.nscInitChannel(server, voiceName,
+				        (int) mAudioFormat.getSampleRate(), 0, dispatcher, pChId);
+				if (ret == NscubeLibrary.NSC_OK) {
+					lib.nscCloseChannel(server, pChId.getValue());
+					workingVoice = voiceName;
+					break;
+				}
+
+			}
+			ret = lib.nscFindNextVoice(voiceEnumerator.getValue(), voiceData);
+		}
+
+		lib.nscCloseFindVoice(voiceEnumerator.getValue());
+		lib.nscDeleteDispatcher(dispatcher);
+		lib.nscReleaseServerContext(server);
+
+		return workingVoice;
+	}
+
 	@Override
 	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
 		mMsPerWord = Integer.valueOf(System.getProperty("acapela.expected.speed", "300"));
@@ -120,6 +165,13 @@ public class AcapelaTTS extends AbstractTTSService {
 
 		int sampleRate = Integer.valueOf(System.getProperty("acapela.samplerate", "22050"));
 		mAudioFormat = new AudioFormat((float) sampleRate, 16, 1, true, false);
+
+		//find a working voice to be used for initializing channels
+		mWorkingVoice = findWorkingVoice(mLoadBalancer.getMaster());
+		if (mWorkingVoice == null) {
+			throw new SynthesisException(
+			        "No voice can be initialized with the Acapala's master server");
+		}
 
 		//check that all the servers are working
 		Throwable lastError = null;
@@ -143,7 +195,7 @@ public class AcapelaTTS extends AbstractTTSService {
 			}
 		}
 		if (workingHosts == 0) {
-			throw new SynthesisException("None of the ATT servers is working.", lastError);
+			throw new SynthesisException("None of the Acapela servers is working.", lastError);
 		}
 		mLoadBalancer.discardAll(nonWorking);
 	}
@@ -194,37 +246,23 @@ public class AcapelaTTS extends AbstractTTSService {
 		//   \vce) without the need to load a list of voice."
 		// But it seems that a channel must be initialized with a least one valid voice, 
 		// i.e. empty string and null string are not accepted.
-
-		PointerByReference voiceEnumerator = new PointerByReference();
-		NSC_FINDVOICE_DATA voiceData = new NSC_FINDVOICE_DATA();
-		ret = lib.nscFindFirstVoice(th.server, (String) null, (int) mAudioFormat
-		        .getSampleRate(), 0, 0, voiceData, voiceEnumerator);
-		if (ret != NscubeLibrary.NSC_OK) {
-			releaseThreadResources(th);
-			throw new SynthesisException(
-			        "Could not find any voice to init one Acapela's channel (err code: " + ret
-			                + ")");
-		}
-		lib.nscCloseFindVoice(voiceEnumerator.getValue());
-
-		//Acapela's doc: " If too many threads attempts to run nscInitChannel at the same time, there may be a
+		// It proceeds to say: " If too many threads attempts to run nscInitChannel at the same time, there may be a
 		// limitation from the TCP/IP driver. In that case, the function returns the code
 		// NSC_ERR_CONNECT. It is up to the application to retry until the function succeeds."
 
 		NativeLongByReference pChId = new NativeLongByReference();
-		ret = lib.nscInitChannel(th.server, new String(voiceData.cVoiceName),
-		        (int) mAudioFormat.getSampleRate(), 0, th.dispatcher, pChId);
+		ret = lib.nscInitChannel(th.server, mWorkingVoice, (int) mAudioFormat.getSampleRate(),
+		        0, th.dispatcher, pChId);
 		for (int tries = 0; tries < 4 && ret == NscubeLibrary.NSC_ERR_CONNECT; ++tries) {
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 			}
-			ret = lib.nscInitChannel(th.server, new String(voiceData.cVoiceName), 0, 0,
-			        th.dispatcher, pChId);
+			ret = lib.nscInitChannel(th.server, mWorkingVoice, 0, 0, th.dispatcher, pChId);
 		}
 		if (ret != NscubeLibrary.NSC_OK) {
 			throw new SynthesisException("Could not init one Acapela's channel (err code: "
-			        + ret + ")");
+			        + ret + ") with voice " + mWorkingVoice);
 		}
 
 		th.channelId = pChId.getValue();
@@ -342,21 +380,24 @@ public class AcapelaTTS extends AbstractTTSService {
 
 		Set<Voice> result = new HashSet<Voice>();
 
-		//Only the voices with the pre-selected sample rate are kept to prevent the server
-		//from producing data using another sample rate without any notification.
-		//If there are two versions with the same speaker (for example 8kHz and 22kHz) then
-		//the server should choose the voice whose sample rate matches the one provided to
-		//the channel initialization. Such a situation has not been tested though.
+		/*
+		 * Only the voices with the pre-selected sample rate are kept to prevent
+		 * the server from producing data using another sample rate without any
+		 * notification. If there are two versions with the same speaker (for
+		 * example 8kHz and 22kHz) then the server should choose the voice whose
+		 * sample rate matches with the one provided to the channel
+		 * initialization. Such a situation has not been tested though. The
+		 * returned voices are not thoroughly tested one by one. Further
+		 * improvements should check that they are at least suitable for
+		 * initializing channels.
+		 */
 		PointerByReference voiceEnumerator = new PointerByReference();
 		NSC_FINDVOICE_DATA voiceData = new NSC_FINDVOICE_DATA();
 		int ret = lib.nscFindFirstVoice(server, (String) null, (int) mAudioFormat
 		        .getSampleRate(), 0, 0, voiceData, voiceEnumerator);
 		while (ret == NscubeLibrary.NSC_OK) {
 			if (voiceData.nInitialCoding == NscubeLibrary.NSC_VOICE_ENCODING_PCM) {
-				int end = 0;
-				for (; end < voiceData.cSpeakerName.length && voiceData.cSpeakerName[end] != 0; ++end);
-				//all the names are supposed to be ascii encoded
-				result.add(new Voice(getName(), new String(voiceData.cSpeakerName, 0, end)));
+				result.add(new Voice(getName(), nullTerminatedString(voiceData.cSpeakerName)));
 			}
 			ret = lib.nscFindNextVoice(voiceEnumerator.getValue(), voiceData);
 		}
@@ -365,6 +406,15 @@ public class AcapelaTTS extends AbstractTTSService {
 		lib.nscReleaseServerContext(server);
 
 		return result;
+	}
+
+	/**
+	 * @param str is supposed to be ascii-encoded
+	 */
+	private static String nullTerminatedString(byte[] str) {
+		int end = 0;
+		for (; end < str.length && str[end] != 0; ++end);
+		return new String(str, 0, end);
 	}
 
 	@Override

@@ -16,7 +16,9 @@ public interface TTSService {
 
 	class SynthesisException extends Exception {
 		public SynthesisException(String message, Throwable cause) {
-			super(message, cause);
+			super(message
+			        + (cause != null && cause.getMessage() != null ? ": " + cause.getMessage()
+			                : ""), cause);
 			if (cause != null) {
 				setStackTrace(cause.getStackTrace());
 			}

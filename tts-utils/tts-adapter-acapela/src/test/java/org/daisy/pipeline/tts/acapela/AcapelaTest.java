@@ -95,7 +95,7 @@ public class AcapelaTest {
 		tts.releaseThreadResources(r);
 
 		Assert.assertTrue(size > 2000);
-		Assert.assertTrue(1 == l.size());
+		Assert.assertEquals(1, l.size());
 		Assert.assertEquals(bookmark, l.get(0).name);
 		Assert.assertTrue(Math.abs(size / 2 - l.get(0).offsetInAudio) < 5000); //the mark is around the middle
 	}
@@ -112,6 +112,10 @@ public class AcapelaTest {
 		simpleBookmark(tts.endingMark());
 	}
 
+	/*
+	 * right now, this test is expected to fail without the XSLT SSML adapter
+	 * that transforms the '___' into something else
+	 */
 	@Test
 	public void hardBookmark() throws SynthesisException, IOException, InterruptedException,
 	        MemoryException {
@@ -127,8 +131,9 @@ public class AcapelaTest {
 		String bmark1 = "1";
 		String bmark2 = "2";
 
-		int size = getSize(tts.speak(format("one two three four <mark name=\"" + bmark1
-		        + "\"/> five <mark name=\"" + bmark2 + "\"/>"), r, l, BufferAllocator));
+		int size = getSize(tts.speak(format("one two three four five six <mark name=\""
+		        + bmark1 + "\"/> seven <mark name=\"" + bmark2 + "\"/>"), r, l,
+		        BufferAllocator));
 		tts.releaseThreadResources(r);
 
 		Assert.assertTrue(size > 200);
@@ -205,6 +210,12 @@ public class AcapelaTest {
 
 		float diversity = Float.valueOf(sizes.size()) / voices.size();
 		Assert.assertTrue(diversity >= 0.6);
+	}
+
+	@Test
+	public void workingVoice() throws SynthesisException {
+		String v = tts.findWorkingVoice(null);
+		Assert.assertNotNull(v);
 	}
 
 	@Test
