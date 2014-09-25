@@ -11,9 +11,13 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 
+import javax.xml.transform.URIResolver;
+
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.XdmNode;
 
+import org.daisy.common.xslt.CompiledStylesheet;
+import org.daisy.common.xslt.XslTransformCompiler;
 import org.daisy.pipeline.audio.AudioServices;
 import org.daisy.pipeline.tts.AudioBufferTracker;
 import org.daisy.pipeline.tts.DefaultSSMLMarkSplitter;
@@ -60,7 +64,6 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	private TTSRegistry mTTSRegistry;
 	private IPipelineLogger mLogger;
 	private ContiguousText mCurrentSection;
-	private Voice mPreviousVoice;
 	private File mAudioDir; //where all the sound files will be stored
 	private long mTotalTextSize; //used for the progress bar
 	private long mPrintedProgress;
@@ -69,13 +72,14 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	private Map<TTSService, List<ContiguousText>> mOrganizedText;
 	private AudioBufferTracker mAudioBufferTracker;
 	private Processor mProc;
+	private URIResolver mURIResolver;
 
 	SSMLtoAudio(File audioDir, TTSRegistry ttsregistry, IPipelineLogger logger,
-	        AudioBufferTracker audioBufferTracker, Processor proc) {
+	        AudioBufferTracker audioBufferTracker, Processor proc, URIResolver uriResolver) {
+		mURIResolver = uriResolver;
 		mTTSRegistry = ttsregistry;
 		mLogger = logger;
 		mCurrentSection = null;
-		mPreviousVoice = null;
 		mDocumentPosition = 0;
 		mOrganizedText = new HashMap<TTSService, List<ContiguousText>>();
 		mAudioBufferTracker = audioBufferTracker;
@@ -137,8 +141,6 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 			        + voice + " will be used for synthesizing sentence with id=" + id);
 		}
 
-		mPreviousVoice = voice;
-
 		/*
 		 * If a TTS Service has no reserved threads, its sentences are pushed to
 		 * a global list whose key is null. Otherwise the TTS Service is used as
@@ -182,6 +184,19 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	Iterable<SoundFileLink> blockingRun(AudioServices audioServices)
 	        throws SynthesisException, InterruptedException {
 
+		XslTransformCompiler xslCompiler = new XslTransformCompiler(mProc
+		        .getUnderlyingConfiguration(), mURIResolver);
+		Map<TTSService, CompiledStylesheet> ssmlTransformers = new HashMap<TTSService, CompiledStylesheet>();
+		for (TTSService tts : mTTSRegistry.getCurrentVoiceManager().getWorkingTTSServices()) {
+			CompiledStylesheet transf = null;
+			try {
+				transf = xslCompiler.compileStylesheet(tts.getSSMLxslTransformerURL()
+				        .openStream());
+			} catch (Exception e) {
+				//should not happen as the XSLTs have already been compiled in the TTSRegistry
+			}
+			ssmlTransformers.put(tts, transf);
+		}
 		//SSML mark splitter shared by the threads:
 		SSMLMarkSplitter ssmlSplitter = new DefaultSSMLMarkSplitter(mProc);
 
@@ -227,7 +242,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		for (; i < regularTTSthreadNum; ++i) {
 			tpt[i] = new TextToPcmThread();
 			tpt[i].start(stext, pcmQueue, mTTSRegistry, ssmlSplitter, this, mLogger,
-			        mAudioBufferTracker, maxMemPerTTSThread);
+			        mAudioBufferTracker, maxMemPerTTSThread, ssmlTransformers);
 		}
 		for (Map.Entry<TTSService, List<ContiguousText>> e : mOrganizedText.entrySet()) {
 			TTSService tts = e.getKey();
@@ -236,7 +251,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 				for (int j = 0; j < tts.reservedThreadNum(); ++i, ++j) {
 					tpt[i] = new TextToPcmThread();
 					tpt[i].start(stext, pcmQueue, mTTSRegistry, ssmlSplitter, this, mLogger,
-					        mAudioBufferTracker, maxMemPerTTSThread);
+					        mAudioBufferTracker, maxMemPerTTSThread, ssmlTransformers);
 				}
 			}
 		}

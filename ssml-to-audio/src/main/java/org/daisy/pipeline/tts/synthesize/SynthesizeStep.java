@@ -5,6 +5,8 @@ import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
+import javax.xml.transform.URIResolver;
+
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -37,6 +39,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	private AudioServices mAudioServices;
 	private Semaphore mStartSemaphore;
 	private AudioBufferTracker mAudioBufferTracker;
+	private URIResolver mURIresolver;
 
 	private static String convertSecondToString(double seconds) {
 		int iseconds = (int) (Math.floor(seconds));
@@ -56,8 +59,9 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 
 	public SynthesizeStep(XProcRuntime runtime, XAtomicStep step, TTSRegistry ttsRegistry,
 	        AudioServices audioServices, Semaphore startSemaphore,
-	        AudioBufferTracker audioBufferTracker) {
+	        AudioBufferTracker audioBufferTracker, URIResolver uriResolver) {
 		super(runtime, step);
+		mURIresolver = uriResolver;
 		mStartSemaphore = startSemaphore;
 		mAudioBufferTracker = audioBufferTracker;
 		mAudioServices = audioServices;
@@ -135,7 +139,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		audioOutputDir.mkdir();
 
 		SSMLtoAudio ssmltoaudio = new SSMLtoAudio(audioOutputDir, mTTSRegistry, this,
-		        mAudioBufferTracker, mRuntime.getProcessor());
+		        mAudioBufferTracker, mRuntime.getProcessor(), mURIresolver);
 
 		Iterable<SoundFileLink> soundFragments = Collections.EMPTY_LIST;
 		try {

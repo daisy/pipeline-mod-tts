@@ -32,6 +32,7 @@ public class VoiceManager {
 	private Map<Locale, Voice> mVoiceLangOnly = new HashMap<Locale, Voice>();
 	private Map<Voice, TTSService> mBestServices = new HashMap<Voice, TTSService>();;
 	private Map<Voice, Voice> mSecondVoices = new HashMap<Voice, Voice>();
+	private Collection<TTSService> mAllWorkingServices;
 
 	static void StaticInit() {
 		final float priorityVariantPenalty = 0.1f;
@@ -207,6 +208,8 @@ public class VoiceManager {
 	}
 
 	public VoiceManager(Collection<TTSService> services) {
+		mAllWorkingServices = services;
+
 		//Create a map of the best services for each available voice, given that two different
 		//services can serve the same voice. 
 		TTSTimeout timeout = new TTSTimeout();
@@ -289,6 +292,13 @@ public class VoiceManager {
 	 */
 	public Collection<VoiceInfo> getAllPossibleVoices() {
 		return VoicePriorities;
+	}
+
+	/**
+	 * @return the list of all working TTS Services
+	 */
+	public Collection<TTSService> getWorkingTTSServices() {
+		return mAllWorkingServices;
 	}
 
 	/**

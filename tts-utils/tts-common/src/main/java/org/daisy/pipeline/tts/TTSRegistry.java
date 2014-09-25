@@ -27,7 +27,6 @@ public class TTSRegistry {
 	}
 
 	private Logger ServerLogger = LoggerFactory.getLogger(TTSRegistry.class);
-	private Map<TTSService, CompiledStylesheet> mSSMLTransformers;
 	private URIResolver mURIResolver;
 	private int mContextOpened = 0;
 	private VoiceManager mVoiceManager;
@@ -97,20 +96,18 @@ public class TTSRegistry {
 	 * maps that allow the user to quickly access to the best voices or the best
 	 * services for a given vendor/language/gender via the VoiceManager.
 	 */
-	public VoiceManager openSynthesizingContext(Configuration conf) {
-		synchronized (this) {
-			mContextOpened++;
-			if (mContextOpened > 1)
-				return mVoiceManager; //context already opened before
-		}
+	public synchronized VoiceManager openSynthesizingContext(Configuration conf) {
+		mContextOpened++;
+		if (mContextOpened > 1)
+			return mVoiceManager; //context already opened before
 
 		synchronized (mTTSResources) {
 			mTTSResources.clear();
 		}
 
-		mSSMLTransformers = new HashMap<TTSService, CompiledStylesheet>();
+		//we check that the SSML adapter do compile but we don't store them because
+		//they wouldn't be usable with other XProcruntime anyway
 		XslTransformCompiler xslCompiler = new XslTransformCompiler(conf, mURIResolver);
-
 		TTSTimeout timeout = new TTSTimeout();
 		for (TTSService tts : mServices) {
 			String fullname = TTSServiceUtil.displayName(tts);
@@ -127,7 +124,6 @@ public class TTSRegistry {
 			}
 
 			if (transf != null) {
-				mSSMLTransformers.put(tts, transf);
 				try {
 					timeout.enableForCurrentThread(3);
 					tts.onBeforeOneExecution();
@@ -156,11 +152,9 @@ public class TTSRegistry {
 	}
 
 	public synchronized void closeSynthesizingContext() {
-		synchronized (this) {
-			mContextOpened--;
-			if (mContextOpened > 0)
-				return; //context still used by other steps
-		}
+		mContextOpened--;
+		if (mContextOpened > 0)
+			return; //context still used by other steps
 
 		for (TTSService tts : mTTSResources.keySet()) { //no possible concurrent write
 			tts.onAfterOneExecution();
@@ -170,7 +164,6 @@ public class TTSRegistry {
 			mTTSResources.clear();
 		}
 		mVoiceManager = null;
-		mSSMLTransformers = null;
 	}
 
 	public VoiceManager getCurrentVoiceManager() {
@@ -193,10 +186,6 @@ public class TTSRegistry {
 		resources.add(r);
 
 		return r;
-	}
-
-	public CompiledStylesheet getSSMLTransformer(TTSService service) {
-		return mSSMLTransformers.get(service);
 	}
 
 	private static String getStack(Throwable t) {
