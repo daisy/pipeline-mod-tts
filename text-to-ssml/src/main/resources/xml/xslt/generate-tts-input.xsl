@@ -142,26 +142,14 @@
 		    <xsl:variable name="next-text-node"
 				  select="$sentence/following-sibling::text()[normalize-space(.) != ''][1]"/>
 
-		    <xsl:choose>
-		      <xsl:when test="$next-text-node">
-			<xsl:analyze-string select="$next-text-node" regex="^[\p{{Z}}]*([.!?…])">
-			  <xsl:matching-substring>
-			    <xsl:value-of select="regex-group(1)"/>
-			  </xsl:matching-substring>
-			  <xsl:non-matching-substring>
-			    <!-- Add the mark only if nothing has
-			         matched (i.e. the non-matching
-			         substring is the whole string). -->
-			    <xsl:if test="$next-text-node = .">
-			      <xsl:value-of select="'.'"/>
-			    </xsl:if>
-			  </xsl:non-matching-substring>
+		    <xsl:if test="$next-text-node">
+		      <xsl:analyze-string select="$next-text-node" regex="^[\p{{Z}}]*([.!?…])">
+			<xsl:matching-substring>
+			  <xsl:value-of select="regex-group(1)"/>
+			</xsl:matching-substring>
+			<xsl:non-matching-substring/>
 		      </xsl:analyze-string>
-		      </xsl:when>
-		      <xsl:otherwise>
-			<xsl:value-of select="'.'"/>
-		      </xsl:otherwise>
-		    </xsl:choose>
+		    </xsl:if>
 
 		    <!-- Legacy code (too CPU-intensive, but more accurate): -->
 		    <!-- <xsl:variable name="next-node" select="following-sibling::node()[preceding-sibling::ssml:s = current()]"/> -->
