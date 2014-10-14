@@ -77,13 +77,11 @@ public class ATTNativeTest {
 	}
 
 	private String SSML(String str) {
-		return ATTNative.mSSMLAdapter.getHeader(null) + str
-		        + ATTNative.mSSMLAdapter.getFooter();
+		return str;
 	}
 
 	private String SSML(String str, String voiceName) {
-		return ATTNative.mSSMLAdapter.getHeader(voiceName) + str
-		        + ATTNative.mSSMLAdapter.getFooter();
+		return "<voice name=\"" + voiceName + "\">" + str + "</voice>";
 	}
 
 	static private void speak(Object handler, long connection, String text) {
