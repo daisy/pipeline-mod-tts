@@ -10,15 +10,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.sound.sampled.AudioFormat;
+
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
+import org.daisy.pipeline.tts.RoundRobinLoadBalancer;
 import org.daisy.pipeline.tts.StraightBufferAllocator;
+import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
-import org.daisy.pipeline.tts.acapela.AcapelaTTS.ThreadResources;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -29,7 +31,7 @@ import org.junit.Test;
  * adequate profile (probably -Ptester).
  */
 public class AcapelaTest {
-	AcapelaTTS tts;
+	AcapelaEngine tts;
 
 	static AudioBufferAllocator BufferAllocator = new StraightBufferAllocator();
 
@@ -53,13 +55,9 @@ public class AcapelaTest {
 
 	@Before
 	public void setUp() throws SynthesisException, InterruptedException {
-		tts = new AcapelaTTS();
-		tts.onBeforeOneExecution();
-	}
-
-	@After
-	public void shutdown() {
-		tts.onAfterOneExecution();
+		tts = new AcapelaEngine(new AcapelaService(),
+		        new AudioFormat(22050, 16, 1, true, true), new RoundRobinLoadBalancer(
+		                "localhost:0", this), 300, 3, 10);
 	}
 
 	@Test
@@ -75,7 +73,7 @@ public class AcapelaTest {
 
 	@Test
 	public void speakEasy() throws SynthesisException, InterruptedException, MemoryException {
-		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
+		TTSResource r = tts.allocateThreadResources();
 
 		int size = getSize(tts.speak(format("this is a test"), r, null, BufferAllocator));
 		tts.releaseThreadResources(r);
@@ -85,7 +83,7 @@ public class AcapelaTest {
 
 	public void simpleBookmark(String bookmark) throws SynthesisException, MemoryException,
 	        InterruptedException {
-		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
+		TTSResource r = tts.allocateThreadResources();
 
 		List<Mark> l = new ArrayList<Mark>();
 
@@ -109,7 +107,7 @@ public class AcapelaTest {
 	@Test
 	public void endingBookmark() throws SynthesisException, IOException, InterruptedException,
 	        MemoryException {
-		simpleBookmark(tts.endingMark());
+		simpleBookmark(tts.getProvider().endingMark());
 	}
 
 	/*
@@ -125,7 +123,7 @@ public class AcapelaTest {
 	@Test
 	public void twoBookmarks() throws SynthesisException, InterruptedException,
 	        MemoryException {
-		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
+		TTSResource r = tts.allocateThreadResources();
 
 		List<Mark> l = new ArrayList<Mark>();
 		String bmark1 = "1";
@@ -153,9 +151,9 @@ public class AcapelaTest {
 			final int j = i;
 			threads[i] = new Thread() {
 				public void run() {
-					ThreadResources r;
+					TTSResource r;
 					try {
-						r = (ThreadResources) tts.allocateThreadResources();
+						r = tts.allocateThreadResources();
 						foundSize[j] = getSize(tts.speak(format("this is a test"), r, null,
 						        BufferAllocator)) / 4;
 						tts.releaseThreadResources(r);
@@ -200,7 +198,7 @@ public class AcapelaTest {
 
 		Set<Integer> sizes = new HashSet<Integer>();
 
-		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
+		TTSResource r = tts.allocateThreadResources();
 		for (Voice v : voices) {
 			int size = getSize(tts.speak(format("this is a test", v.name), r, null,
 			        BufferAllocator));
@@ -227,12 +225,12 @@ public class AcapelaTest {
 		//When the accents are not properly handled, the processor pronounces the accents separately.
 		//As a result, the output audio buffer will be longer than expected. 
 
-		ThreadResources r = (ThreadResources) tts.allocateThreadResources();
+		TTSResource r = tts.allocateThreadResources();
 		int size1 = getSize(tts.speak(format("<s xml:lang=\"fr\">" + withAccents + "</s>"), r,
 		        null, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		r = (ThreadResources) tts.allocateThreadResources();
+		r = tts.allocateThreadResources();
 		int size2 = getSize(tts.speak(format("<s xml:lang=\"fr\">" + withoutAccents + "</s>"),
 		        r, null, BufferAllocator));
 		tts.releaseThreadResources(r);
@@ -269,7 +267,7 @@ public class AcapelaTest {
 		Integer refSize = null;
 
 		for (Character c : chars) {
-			ThreadResources r = (ThreadResources) tts.allocateThreadResources();
+			TTSResource r = tts.allocateThreadResources();
 			List<Mark> l = new ArrayList<Mark>();
 
 			int size = getSize(tts.speak(format(begin + c + end, "alice"), r, l,

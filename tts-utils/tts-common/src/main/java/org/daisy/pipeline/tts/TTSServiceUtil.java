@@ -14,32 +14,31 @@ public class TTSServiceUtil {
 		return service.getName() + "-" + service.getVersion();
 	}
 
-	public static Throwable testTTS(TTSService tts, String testStr)
-	        throws InterruptedException {
+	public static Throwable testTTS(TTSEngine tts, String testStr) throws InterruptedException {
 		return testTTS(tts, null, testStr, null, null);
 	}
 
-	public static Throwable testTTS(TTSService tts, String testStr, String ssmlMark)
+	public static Throwable testTTS(TTSEngine tts, String testStr, String ssmlMark)
 	        throws InterruptedException {
 		return testTTS(tts, null, testStr, ssmlMark, null);
 	}
 
-	public static Throwable testTTS(TTSService tts, Voice v, String testStr)
+	public static Throwable testTTS(TTSEngine tts, Voice v, String testStr)
 	        throws InterruptedException {
 		return testTTS(tts, v, testStr, null, null);
 	}
 
-	public static Throwable testTTS(TTSService tts, String testStr, TTSResource resource)
+	public static Throwable testTTS(TTSEngine tts, String testStr, TTSResource resource)
 	        throws InterruptedException {
 		return testTTS(tts, null, testStr, null, resource);
 	}
 
-	public static Throwable testTTS(TTSService tts, String testStr, String ssmlMark,
+	public static Throwable testTTS(TTSEngine tts, String testStr, String ssmlMark,
 	        TTSResource resource) throws InterruptedException {
 		return testTTS(tts, null, testStr, ssmlMark, resource);
 	}
 
-	public static Throwable testTTS(TTSService tts, Voice v, String testStr,
+	public static Throwable testTTS(TTSEngine tts, Voice v, String testStr,
 	        TTSResource resource) throws InterruptedException {
 		return testTTS(tts, v, testStr, null, resource);
 	}
@@ -47,12 +46,12 @@ public class TTSServiceUtil {
 	/**
 	 * @return an error if anything went wrong
 	 */
-	public static Throwable testTTS(TTSService tts, Voice v, String testStr, String ssmlMark,
+	public static Throwable testTTS(TTSEngine tts, Voice v, String testStr, String ssmlMark,
 	        TTSResource resources) throws InterruptedException {
 
-		if (tts.endingMark() != null) {
+		if (tts.getProvider().endingMark() != null) {
 			if (ssmlMark == null)
-				ssmlMark = "<mark name=\"" + tts.endingMark() + "\"/>";
+				ssmlMark = "<mark name=\"" + tts.getProvider().endingMark() + "\"/>";
 			testStr += ssmlMark;
 		}
 		Collection<AudioBuffer> audioBuffers = null;
@@ -81,24 +80,24 @@ public class TTSServiceUtil {
 			size += buff.size;
 		if (size < 2500) {
 			return new TTSService.SynthesisException("not enough output audio for string \""
-			        + testStr + "\"");
+			        + testStr + "\".");
 		}
 
 		//check the ending mark
-		if (tts.endingMark() != null) {
+		if (tts.getProvider().endingMark() != null) {
 			if (marks.size() != 1) {
 				return new TTSService.SynthesisException(
 				        "one bookmark events expected. Received " + marks.size() + " instead.");
 			}
 			Mark mark = marks.get(0);
-			if (!tts.endingMark().equals(mark.name)) {
+			if (!tts.getProvider().endingMark().equals(mark.name)) {
 				return new TTSService.SynthesisException("expecting ending mark "
-				        + tts.endingMark() + ". Got " + mark.name + " instead ");
+				        + tts.getProvider().endingMark() + ". Got " + mark.name + " instead ");
 			}
 			if (mark.offsetInAudio < 2500) {
 				return new TTSService.SynthesisException(
 				        "expecting ending mark offset to be bigger. Got " + mark.offsetInAudio
-				                + " as offset");
+				                + " as offset.");
 			}
 		}
 

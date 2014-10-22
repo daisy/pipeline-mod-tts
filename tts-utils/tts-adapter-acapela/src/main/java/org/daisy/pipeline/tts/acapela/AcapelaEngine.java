@@ -12,18 +12,18 @@ import javax.sound.sampled.AudioFormat;
 import net.sf.saxon.s9api.XdmNode;
 
 import org.daisy.pipeline.audio.AudioBuffer;
-import org.daisy.pipeline.tts.AbstractTTSService;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
+import org.daisy.pipeline.tts.LoadBalancer;
 import org.daisy.pipeline.tts.LoadBalancer.Host;
-import org.daisy.pipeline.tts.RoundRobinLoadBalancer;
 import org.daisy.pipeline.tts.SoundUtil;
+import org.daisy.pipeline.tts.TTSEngine;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
-import org.daisy.pipeline.tts.TTSServiceUtil;
+import org.daisy.pipeline.tts.TTSService.Mark;
+import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.acapela.NscubeLibrary.PNSC_FNSPEECH_DATA;
 import org.daisy.pipeline.tts.acapela.NscubeLibrary.PNSC_FNSPEECH_EVENT;
-import org.osgi.framework.BundleContext;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
@@ -38,16 +38,28 @@ import com.sun.jna.ptr.PointerByReference;
  * (it) • Brazilian (br) • German (de). For other languages, we can adapt the
  * SSML to the tag language (/mark{...}, /voice{...}) etc.
  */
-public class AcapelaTTS extends AbstractTTSService {
+public class AcapelaEngine extends TTSEngine {
+
+	//private Logger mLogger = LoggerFactory.getLogger(AcapelaEngine.class);
 
 	private AudioFormat mAudioFormat;
-	private RoundRobinLoadBalancer mLoadBalancer;
+	private LoadBalancer mLoadBalancer;
 	private int mMsPerWord;
-	private int mReserved = Integer.valueOf(System
-	        .getProperty("acapela.threads.reserved", "3"));
-	private String mWorkingVoice;
+	private int mReserved;
+	private int mPriority;
 
-	public static class ThreadResources extends TTSResource {
+	public AcapelaEngine(AcapelaService provider, AudioFormat format,
+	        LoadBalancer loadBalancer, int speed, int reserved, int priority)
+	        throws SynthesisException {
+		super(provider);
+		mPriority = priority;
+		mAudioFormat = format;
+		mMsPerWord = speed;
+		mReserved = reserved;
+		mLoadBalancer = loadBalancer;
+	}
+
+	private static class ThreadResources extends TTSResource {
 		Pointer dispatcher;
 		NativeLong channelId;
 		PointerByReference channelLock;
@@ -117,8 +129,9 @@ public class AcapelaTTS extends AbstractTTSService {
 			h = mLoadBalancer.getMaster();
 
 		String workingVoice = null;
+
 		NscubeLibrary lib = NscubeLibrary.INSTANCE;
-		Pointer server = createServerContext(mLoadBalancer.getMaster());
+		Pointer server = createServerContext(h);
 
 		PointerByReference phDispatch = new PointerByReference();
 		int ret = lib.nscCreateDispatcher(phDispatch);
@@ -157,57 +170,14 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
-		mMsPerWord = Integer.valueOf(System.getProperty("acapela.expected.speed", "300"));
-
-		mLoadBalancer = new RoundRobinLoadBalancer(System.getProperty("acapela.servers",
-		        "localhost:0"), this); //'0' means that the port is left to Nscube's choice
-
-		int sampleRate = Integer.valueOf(System.getProperty("acapela.samplerate", "22050"));
-		mAudioFormat = new AudioFormat((float) sampleRate, 16, 1, true, false);
-
-		//find a working voice to be used for initializing channels
-		mWorkingVoice = findWorkingVoice(mLoadBalancer.getMaster());
-		if (mWorkingVoice == null) {
-			throw new SynthesisException(
-			        "No voice can be initialized with the Acapala's master server");
-		}
-
-		//check that all the servers are working
-		Throwable lastError = null;
-		int workingHosts = 0;
-		List<Host> nonWorking = new ArrayList<Host>();
-		for (Host h : mLoadBalancer.getAllHosts()) {
-			TTSResource r = null;
-			Throwable t = null;
-			try {
-				r = allocateThreadResources(h);
-			} catch (SynthesisException | InterruptedException e) {
-				t = e;
-			}
-			if (t == null)
-				t = TTSServiceUtil.testTTS(this, "hello world", r);
-			if (t == null) {
-				++workingHosts;
-			} else {
-				lastError = t;
-				nonWorking.add(h);
-			}
-		}
-		if (workingHosts == 0) {
-			throw new SynthesisException("None of the Acapela servers is working.", lastError);
-		}
-		mLoadBalancer.discardAll(nonWorking);
-	}
-
-	@Override
 	public TTSResource allocateThreadResources() throws SynthesisException,
 	        InterruptedException {
 		return allocateThreadResources(mLoadBalancer.selectHost());
 	}
 
-	private ThreadResources allocateThreadResources(Host h) throws SynthesisException,
+	ThreadResources allocateThreadResources(Host h) throws SynthesisException,
 	        InterruptedException {
+
 		NscubeLibrary lib = NscubeLibrary.INSTANCE;
 		ThreadResources th = new ThreadResources();
 
@@ -251,18 +221,26 @@ public class AcapelaTTS extends AbstractTTSService {
 		// NSC_ERR_CONNECT. It is up to the application to retry until the function succeeds."
 
 		NativeLongByReference pChId = new NativeLongByReference();
-		ret = lib.nscInitChannel(th.server, mWorkingVoice, (int) mAudioFormat.getSampleRate(),
-		        0, th.dispatcher, pChId);
-		for (int tries = 0; tries < 4 && ret == NscubeLibrary.NSC_ERR_CONNECT; ++tries) {
-			try {
-				Thread.sleep(2000);
-			} catch (InterruptedException e) {
+		PointerByReference voiceEnumerator = new PointerByReference();
+		NSC_FINDVOICE_DATA voiceData = new NSC_FINDVOICE_DATA();
+		ret = lib.nscFindFirstVoice(th.server, (String) null, (int) mAudioFormat
+		        .getSampleRate(), 0, 0, voiceData, voiceEnumerator);
+		while (ret == NscubeLibrary.NSC_OK) {
+			if (voiceData.nInitialCoding == NscubeLibrary.NSC_VOICE_ENCODING_PCM) {
+				String voiceName = nullTerminatedString(voiceData.cVoiceName);
+				ret = lib.nscInitChannel(th.server, voiceName, (int) mAudioFormat
+				        .getSampleRate(), 0, th.dispatcher, pChId);
+				if (ret == NscubeLibrary.NSC_OK) {
+					break;
+				}
+
 			}
-			ret = lib.nscInitChannel(th.server, mWorkingVoice, 0, 0, th.dispatcher, pChId);
+			ret = lib.nscFindNextVoice(voiceEnumerator.getValue(), voiceData);
 		}
+
 		if (ret != NscubeLibrary.NSC_OK) {
-			throw new SynthesisException("Could not init one Acapela's channel (err code: "
-			        + ret + ") with voice " + mWorkingVoice);
+			throw new SynthesisException("Could not init Acapela's channel (err code: " + ret
+			        + ")");
 		}
 
 		th.channelId = pChId.getValue();
@@ -367,12 +345,6 @@ public class AcapelaTTS extends AbstractTTSService {
 	}
 
 	@Override
-	public void onAfterOneExecution() {
-		mLoadBalancer = null;
-		mAudioFormat = null;
-	}
-
-	@Override
 	public Collection<Voice> getAvailableVoices() throws SynthesisException,
 	        InterruptedException {
 		NscubeLibrary lib = NscubeLibrary.INSTANCE;
@@ -397,7 +369,8 @@ public class AcapelaTTS extends AbstractTTSService {
 		        .getSampleRate(), 0, 0, voiceData, voiceEnumerator);
 		while (ret == NscubeLibrary.NSC_OK) {
 			if (voiceData.nInitialCoding == NscubeLibrary.NSC_VOICE_ENCODING_PCM) {
-				result.add(new Voice(getName(), nullTerminatedString(voiceData.cSpeakerName)));
+				result.add(new Voice(getProvider().getName(),
+				        nullTerminatedString(voiceData.cSpeakerName)));
 			}
 			ret = lib.nscFindNextVoice(voiceEnumerator.getValue(), voiceData);
 		}
@@ -419,27 +392,12 @@ public class AcapelaTTS extends AbstractTTSService {
 
 	@Override
 	public int getOverallPriority() {
-		return Integer.valueOf(System.getProperty("acapela.priority", "13"));
-	}
-
-	@Override
-	public String endingMark() {
-		return "ending-mark";
+		return mPriority;
 	}
 
 	@Override
 	public AudioFormat getAudioOutputFormat() {
 		return mAudioFormat;
-	}
-
-	@Override
-	public String getName() {
-		return "acapela";
-	}
-
-	@Override
-	public String getVersion() {
-		return "jna";
 	}
 
 	@Override
@@ -454,7 +412,4 @@ public class AcapelaTTS extends AbstractTTSService {
 		return mMsPerWord;
 	}
 
-	public void init(BundleContext context) {
-		mXSLTresource = context.getBundle().getEntry("/transform-ssml.xsl");
-	}
 }

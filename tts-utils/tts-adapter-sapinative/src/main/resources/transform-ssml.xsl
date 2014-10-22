@@ -3,18 +3,32 @@
     xmlns:ssml="http://www.w3.org/2001/10/synthesis"
     exclude-result-prefixes="#all"
     version="2.0">
-    
+
   <xsl:output omit-xml-declaration="yes"/>
 
   <xsl:param name="voice" select="''"/>
   <xsl:param name="ending-mark" select="''"/>
 
   <xsl:template match="*">
-  	<ssml:speak version="1.0">
-  		<xsl:copy-of select="if (local-name()='speak') then node() else ."/>
-    	<ssml:break time="250ms"/>
-    	<ssml:mark name="{$ending-mark}"/>
-	 </ssml:speak>
+    <ssml:speak version="1.0">
+      <xsl:apply-templates select="if (local-name()='speak') then node() else ." mode="copy"/>
+      <ssml:break time="250ms"/>
+      <xsl:if test="$ending-mark != ''">
+	<ssml:mark name="{$ending-mark}"/>
+      </xsl:if>
+    </ssml:speak>
   </xsl:template>
+
+  <xsl:template match="@*|node()" mode="copy">
+    <xsl:copy>
+      <xsl:apply-templates select="@*|node()" mode="copy"/>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="ssml:token" mode="copy">
+    <!-- tokens are not copied because they are not SSML1.0-compliant and not SAPI-compliant-->
+    <xsl:apply-templates select="@*|node()" mode="copy"/>
+  </xsl:template>
+
 
 </xsl:stylesheet>

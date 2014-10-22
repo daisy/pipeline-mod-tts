@@ -4,20 +4,16 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.sound.sampled.AudioFormat;
-
 /**
  * List of sentences adjacent to each other in the original document. Positions
  * in the document are kept so as to adequately name the sound files.
  */
 class ContiguousText implements Comparable<ContiguousText> {
 
-	ContiguousText(int documentPosition, File audioOutputDir, AudioFormat audioFormat) {
+	ContiguousText(int documentPosition, File audioOutputDir) {
 		mDocumentPosition = documentPosition;
 		mAudioOutputDir = audioOutputDir;
-		mAudioFormat = audioFormat;
 		mDocumentSplitPosition = 0;
-		mAudioFormat = audioFormat;
 		sentences = new ArrayList<Sentence>();
 	}
 
@@ -53,16 +49,11 @@ class ContiguousText implements Comparable<ContiguousText> {
 		mSize = size;
 	}
 
-	public AudioFormat getAudioFormat() {
-		return mAudioFormat;
-	}
-
 	public File getAudioOutputDir() {
 		return mAudioOutputDir;
 	}
 
 	private File mAudioOutputDir;
-	private AudioFormat mAudioFormat;
 	private int mDocumentSplitPosition;
 	private int mDocumentPosition;
 	private int mSize; //used for sorting
