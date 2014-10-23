@@ -13,7 +13,6 @@ public class SAPIservice extends AbstractTTSService {
 
 	private boolean mFirstLoad = true;
 	private AudioFormat mAudioFormat = null;
-	private boolean mHandlingMark = true;
 
 	@Override
 	public TTSEngine newEngine(Map<String, String> params) throws Throwable {
@@ -25,7 +24,7 @@ public class SAPIservice extends AbstractTTSService {
 		String markProp = "sapi.handle.marks";
 		String str = params.get(markProp);
 		if ("false".equalsIgnoreCase(str)) {
-			mHandlingMark = false;
+			handleMarks = false;
 		}
 
 		AudioFormat audioFormat = new AudioFormat(sampleRate, 8 * bytesPerSample, 1, true,

@@ -27,16 +27,17 @@ public class VoiceManager {
 	private List<VoiceInfo> mVoicePriorities;
 	private Map<VoiceKey, Voice> mVoiceFullDescription = new HashMap<VoiceKey, Voice>();
 	private Map<VoiceKey, Voice> mVoiceGenderMissing = new HashMap<VoiceKey, Voice>();
-	private Map<VoiceKey, Voice> mVoiceVendorMissing = new HashMap<VoiceKey, Voice>();
+	private Map<VoiceKey, Voice> mVoiceEngineMissing = new HashMap<VoiceKey, Voice>();
 	private Map<Locale, Voice> mVoiceLangOnly = new HashMap<Locale, Voice>();
 	private Map<Voice, TTSEngine> mBestEngines = new HashMap<Voice, TTSEngine>();
 	private Map<Voice, Voice> mSecondVoices = new HashMap<Voice, Voice>();
 	private static List<VoiceInfo> BuiltinVoices;
 
 	static {
+		//the following engine names must be consistent with the ones provided by the TTSService
 		final String eSpeak = "espeak";
 		final String att = "att";
-		final String microsoft = "Microsoft";
+		final String microsoft = "sapi";
 		final String acapela = "acapela";
 		final String osx = "osx-speech";
 		final int eSpeakPriority = 1;
@@ -246,12 +247,12 @@ public class VoiceManager {
 		//the language, the vendor and the gender
 		for (VoiceInfo voiceInfo : mVoicePriorities) {
 			registerVoice(mVoiceFullDescription, new VoiceKey(voiceInfo.language,
-			        voiceInfo.gender, voiceInfo.voice.vendor), voiceInfo.voice);
+			        voiceInfo.gender, voiceInfo.voice.engine), voiceInfo.voice);
 
 			registerVoice(mVoiceGenderMissing, new VoiceKey(voiceInfo.language,
-			        voiceInfo.voice.vendor), voiceInfo.voice);
+			        voiceInfo.voice.engine), voiceInfo.voice);
 
-			registerVoice(mVoiceVendorMissing, new VoiceKey(voiceInfo.language,
+			registerVoice(mVoiceEngineMissing, new VoiceKey(voiceInfo.language,
 			        voiceInfo.gender), voiceInfo.voice);
 
 			registerVoice(mVoiceLangOnly, voiceInfo.language, voiceInfo.voice);
@@ -300,7 +301,7 @@ public class VoiceManager {
 
 	/**
 	 * @return null if no voice is available for the given parameters.
-	 * @param voiceVendor is null if unknown
+	 * @param voiceEngine is null if unknown
 	 * @param voiceName is null if unknown
 	 * @param lang is null if unknown
 	 * @param gender is null if unknown
@@ -308,9 +309,9 @@ public class VoiceManager {
 	 *            argument can be null if the returned information is not
 	 *            required.
 	 */
-	public Voice findAvailableVoice(String voiceVendor, String voiceName, String lang,
+	public Voice findAvailableVoice(String voiceEngine, String voiceName, String lang,
 	        String gender, boolean[] exactMatch) {
-		return findAvailableVoice(voiceVendor, voiceName, lang, Gender.of(gender),
+		return findAvailableVoice(voiceEngine, voiceName, lang, Gender.of(gender),
 		        exactMatch == null ? new boolean[1] : exactMatch);
 	}
 
@@ -341,12 +342,12 @@ public class VoiceManager {
 		return voiceMap.get(key2);
 	}
 
-	private Voice findAvailableVoice(String voiceVendor, String voiceName, String lang,
+	private Voice findAvailableVoice(String voiceEngine, String voiceName, String lang,
 	        Gender gender, boolean[] exactMatch) {
 
-		if (voiceVendor != null && !voiceVendor.isEmpty() && voiceName != null
+		if (voiceEngine != null && !voiceEngine.isEmpty() && voiceName != null
 		        && !voiceName.isEmpty()) {
-			Voice preferredVoice = new Voice(voiceVendor, voiceName);
+			Voice preferredVoice = new Voice(voiceEngine, voiceName);
 			if (mBestEngines.containsKey(preferredVoice)) {
 				exactMatch[0] = true;
 				return preferredVoice;
@@ -368,32 +369,32 @@ public class VoiceManager {
 		Locale shortLoc = new Locale(loc.getLanguage());
 		Voice result;
 
-		result = searchVoice(mVoiceFullDescription, new VoiceKey(loc, gender, voiceVendor),
-		        new VoiceKey(shortLoc, gender, voiceVendor));
+		result = searchVoice(mVoiceFullDescription, new VoiceKey(loc, gender, voiceEngine),
+		        new VoiceKey(shortLoc, gender, voiceEngine));
 		if (result != null) {
 			exactMatch[0] = (voiceName == null);
 			return result;
 		}
 
-		result = searchVoice(mVoiceGenderMissing, new VoiceKey(loc, voiceVendor),
-		        new VoiceKey(shortLoc, voiceVendor));
+		result = searchVoice(mVoiceGenderMissing, new VoiceKey(loc, voiceEngine),
+		        new VoiceKey(shortLoc, voiceEngine));
 		if (result != null) {
 			exactMatch[0] = (voiceName == null && gender == null);
 			return result;
 		}
-		result = searchVoice(mVoiceVendorMissing, new VoiceKey(loc, gender), new VoiceKey(
+		result = searchVoice(mVoiceEngineMissing, new VoiceKey(loc, gender), new VoiceKey(
 		        shortLoc, gender));
 		if (result != null) {
-			exactMatch[0] = (voiceName == null && voiceVendor == null);
+			exactMatch[0] = (voiceName == null && voiceEngine == null);
 			return result;
 		}
 
-		exactMatch[0] = (voiceName == null && voiceVendor == null && gender == null);
+		exactMatch[0] = (voiceName == null && voiceEngine == null && gender == null);
 		return searchVoice(mVoiceLangOnly, loc, shortLoc);
 	}
 
 	private void setSecondVoices(List<VoiceInfo> sortedAvailableVoices, int[] indexes,
-	        boolean sameVendor, boolean sameGender) {
+	        boolean sameEngine, boolean sameGender) {
 		for (int i = 0; i < mVoicePriorities.size(); ++i) {
 			VoiceInfo bestVoice = mVoicePriorities.get(i);
 			if (!mSecondVoices.containsKey(bestVoice)) {
@@ -401,8 +402,8 @@ public class VoiceManager {
 					VoiceInfo fallback = sortedAvailableVoices.get(j);
 					if (fallback.language.equals(bestVoice.language)
 					        && (!sameGender || fallback.gender.equals(bestVoice.gender))
-					        && (!sameVendor || fallback.voice.vendor
-					                .equals(bestVoice.voice.vendor))) {
+					        && (!sameEngine || fallback.voice.engine
+					                .equals(bestVoice.voice.engine))) {
 						mSecondVoices.put(bestVoice.voice, fallback.voice);
 						break;
 					}
@@ -420,7 +421,7 @@ public class VoiceManager {
 	}
 
 	static private class VoiceKey {
-		public String vendor;
+		public String engine;
 		public Locale lang;
 		public Gender gender;
 
@@ -431,21 +432,21 @@ public class VoiceManager {
 
 		public VoiceKey(Locale lang, String vendor) {
 			this.lang = lang;
-			this.vendor = vendor;
+			this.engine = vendor;
 		}
 
 		public VoiceKey(Locale lang, Gender gender, String vendor) {
 			this.lang = lang;
 			this.gender = gender;
-			this.vendor = vendor;
+			this.engine = vendor;
 		}
 
 		public int hashCode() {
 			int res = this.lang.hashCode();
 			if (this.gender != null)
 				res ^= this.gender.hashCode();
-			if (this.vendor != null)
-				res ^= this.vendor.hashCode();
+			if (this.engine != null)
+				res ^= this.engine.hashCode();
 
 			return res;
 		}
@@ -455,7 +456,7 @@ public class VoiceManager {
 
 			return lang.equals(o.lang)
 			        && (gender == o.gender || (gender != null && gender.equals(o.gender)))
-			        && (vendor == o.vendor || (vendor != null && vendor.equals(o.vendor)));
+			        && (engine == o.engine || (engine != null && engine.equals(o.engine)));
 		}
 	}
 

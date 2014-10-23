@@ -3,7 +3,9 @@ package org.daisy.pipeline.tts.sapinative;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.sound.sampled.AudioFormat;
 
@@ -27,6 +29,7 @@ public class SAPIengine extends TTSEngine {
 	private AudioFormat mAudioFormat;
 	private int mOverallPriority;
 	private boolean mHandleMarks;
+	private Map<String, Voice> mVoiceFormatConverter = null;
 
 	private static class ThreadResource extends TTSResource {
 		long connection;
@@ -60,8 +63,10 @@ public class SAPIengine extends TTSEngine {
 	        List<Mark> marks, AudioBufferAllocator bufferAllocator) throws SynthesisException,
 	        MemoryException {
 
+		voice = mVoiceFormatConverter.get(voice.name.toLowerCase());
+
 		ThreadResource tr = (ThreadResource) resource;
-		int res = SAPILib.speak(tr.connection, voice.vendor, voice.name, ssml);
+		int res = SAPILib.speak(tr.connection, voice.engine, voice.name, ssml);
 		if (res != 0) {
 			throw new SynthesisException("SAPI speak error number " + res + " with voice "
 			        + voice);
@@ -101,12 +106,21 @@ public class SAPIengine extends TTSEngine {
 	@Override
 	public Collection<Voice> getAvailableVoices() throws SynthesisException,
 	        InterruptedException {
-		String[] names = SAPILib.getVoiceNames();
-		String[] vendors = SAPILib.getVoiceVendors();
-		List<Voice> voices = new ArrayList<Voice>();
-		for (int i = 0; i < names.length; ++i) {
-			voices.add(new Voice(vendors[i], names[i]));
+		if (mVoiceFormatConverter == null) {
+			mVoiceFormatConverter = new HashMap<String, Voice>();
+			String[] names = SAPILib.getVoiceNames();
+			String[] vendors = SAPILib.getVoiceVendors();
+			for (int i = 0; i < names.length; ++i) {
+				mVoiceFormatConverter.put(names[i].toLowerCase(), new Voice(vendors[i],
+				        names[i]));
+			}
 		}
+
+		List<Voice> voices = new ArrayList<Voice>();
+		for (String sapiVoice : mVoiceFormatConverter.keySet()) {
+			voices.add(new Voice(getProvider().getName(), sapiVoice));
+		}
+
 		return voices;
 	}
 

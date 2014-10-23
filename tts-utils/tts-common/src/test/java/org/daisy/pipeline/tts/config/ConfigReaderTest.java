@@ -45,7 +45,7 @@ public class ConfigReaderTest {
 
 	@Test
 	public void voices() throws SaxonApiException {
-		ConfigReader cr = initConfigReader("<voice vendor=\"vendor\" name=\"voice-name\" gender=\"male\" lang=\"en\" priority=\"42\"/>");
+		ConfigReader cr = initConfigReader("<voice engine=\"engine\" name=\"voice-name\" gender=\"male\" lang=\"en\" priority=\"42\"/>");
 
 		Collection<VoiceInfo> voices = cr.getVoiceDeclarations();
 
@@ -54,7 +54,7 @@ public class ConfigReaderTest {
 		VoiceInfo v = voices.iterator().next();
 		Assert.assertEquals(new Locale("en"), v.language);
 		Assert.assertEquals("voice-name", v.voice.name);
-		Assert.assertEquals("vendor", v.voice.vendor);
+		Assert.assertEquals("engine", v.voice.engine);
 		Assert.assertEquals(VoiceInfo.Gender.MALE_ADULT, v.gender);
 		Assert.assertEquals(42, (int) v.priority);
 	}

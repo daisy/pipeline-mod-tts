@@ -383,7 +383,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			releaseResource(tts, mResources.get(tts));
 			mResources.remove(tts);
 
-			//Find another TTS vendor for this sentence
+			//Find another TTS engine for this sentence
 			Voice newVoice = mVoiceManager.findSecondaryVoice(sentence.getVoice());
 			if (newVoice == null) {
 				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
@@ -394,7 +394,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			}
 			tts = mVoiceManager.getTTS(newVoice); //cannot return null in this case
 
-			//Try with the new vendor
+			//Try with the new engine
 			marks.clear();
 			try {
 				pcm = speakWithVoice(sentence, newVoice, tts, marks, timeout);
