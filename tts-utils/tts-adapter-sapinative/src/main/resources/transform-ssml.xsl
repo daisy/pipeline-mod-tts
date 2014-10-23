@@ -25,6 +25,10 @@
     </xsl:copy>
   </xsl:template>
 
+  <xsl:template match="@xml:lang" mode="copy">
+    <!-- not copied in order to prevent inconsistency with the current voice -->
+  </xsl:template>
+
   <xsl:template match="ssml:token" mode="copy">
     <!-- tokens are not copied because they are not SSML1.0-compliant and not SAPI-compliant-->
     <xsl:apply-templates select="@*|node()" mode="copy"/>

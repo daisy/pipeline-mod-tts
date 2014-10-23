@@ -233,12 +233,17 @@ public class TextToPcmThread implements FormatSpecifications {
 				Collection<AudioBuffer> buffers = null;
 				try {
 					buffers = synthesizeSSML(tts, ssml, sentenceId, voice, threadResources,
-					        null);
+					        new ArrayList<Mark>());
 				} catch (MemoryException | SaxonApiException | SynthesisException
 				        | InterruptedException e) {
 					//TODO: flush the buffers here
 					SoundUtil.cancelFootPrint(result, mAudioBufferTracker);
 					throw e;
+				} catch (Throwable t) {
+
+					//TODO: flush the buffers here
+					SoundUtil.cancelFootPrint(result, mAudioBufferTracker);
+					throw new SynthesisException(t);
 				}
 
 				if (chunk.leftMark() != null) {
@@ -328,7 +333,6 @@ public class TextToPcmThread implements FormatSpecifications {
 			        ErrorCode.WARNING, "timeout (" + timeoutSecs
 			                + " seconds) fired while speaking with "
 			                + TTSServiceUtil.displayName(tts.getProvider())));
-
 			return null;
 		} catch (SynthesisException e) {
 			StringWriter sw = new StringWriter();
@@ -345,6 +349,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
 			        ErrorCode.WARNING, "error while transforming SSML with the XSLT of "
 			                + TTSServiceUtil.displayName(tts.getProvider()) + " : " + e));
+			return null;
 		} finally {
 			timeout.disable();
 		}
@@ -487,8 +492,10 @@ public class TextToPcmThread implements FormatSpecifications {
 	}
 
 	private void printMemError(Sentence sentence, MemoryException e) {
+		String msg = "out of memory when processing sentence";
+		ServerLogger.error(msg + " with @id=" + sentence.getID());
 		mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-		        ErrorCode.AUDIO_MISSING, "out of memory when processing sentence"));
+		        ErrorCode.AUDIO_MISSING, msg));
 	}
 
 	private void addBuffers(Iterable<AudioBuffer> toadd) throws InterruptedException {
