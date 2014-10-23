@@ -26,15 +26,26 @@ public class SAPIengine extends TTSEngine {
 
 	private AudioFormat mAudioFormat;
 	private int mOverallPriority;
+	private boolean mHandleMarks;
 
 	private static class ThreadResource extends TTSResource {
 		long connection;
 	}
 
-	public SAPIengine(SAPIservice service, AudioFormat audioFormat, int priority) {
+	public SAPIengine(SAPIservice service, AudioFormat audioFormat, int priority,
+	        boolean handleMarks) {
 		super(service);
 		mAudioFormat = audioFormat;
 		mOverallPriority = priority;
+		mHandleMarks = handleMarks;
+	}
+
+	@Override
+	public String endingMark() {
+		if (mHandleMarks)
+			return "ending-mark";
+
+		return null;
 	}
 
 	@Override

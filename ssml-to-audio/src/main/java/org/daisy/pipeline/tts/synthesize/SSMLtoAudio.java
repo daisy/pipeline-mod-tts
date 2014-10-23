@@ -185,21 +185,6 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	        Map<String, String> properties, XdmNode testingXML,
 	        CompiledStylesheet ssmlTransformer, TTSTimeout timeout) {
 
-		//transform the SSML with the custom SSML adapter
-		String ttsInput = null;
-		try {
-			Map<String, Object> params = new TreeMap<String, Object>();
-			if (service.endingMark() != null)
-				params.put("ending-mark", service.endingMark());
-			ttsInput = ssmlTransformer.newTransformer().transformToString(testingXML, params);
-		} catch (SaxonApiException e) {
-			String err = "error while using the SSML adapter of "
-			        + TTSServiceUtil.displayName(service) + " on " + testingXML.toString();
-			ServerLogger.error(err);
-			mTTSlog.addGeneralError(ErrorCode.WARNING, err);
-			return null;
-		}
-
 		//create the engine
 		TTSEngine engine = null;
 		try {
@@ -214,6 +199,21 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 			return null;
 		} finally {
 			timeout.disable();
+		}
+
+		//transform the SSML with the custom SSML adapter
+		String ttsInput = null;
+		try {
+			Map<String, Object> params = new TreeMap<String, Object>();
+			if (engine.endingMark() != null)
+				params.put("ending-mark", engine.endingMark());
+			ttsInput = ssmlTransformer.newTransformer().transformToString(testingXML, params);
+		} catch (SaxonApiException e) {
+			String err = "error while using the SSML adapter of "
+			        + TTSServiceUtil.displayName(service) + " on " + testingXML.toString();
+			ServerLogger.error(err);
+			mTTSlog.addGeneralError(ErrorCode.WARNING, err);
+			return null;
 		}
 
 		//get a voice
@@ -312,18 +312,19 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		}
 
 		//check the ending mark
-		if (service.endingMark() != null) {
+		if (engine.endingMark() != null) {
 			if (marks.size() != 1) {
 				msg += "One bookmark events expected, received " + marks.size() + " instead. ";
-			}
-			Mark mark = marks.get(0);
-			if (!service.endingMark().equals(mark.name)) {
-				msg += "Expecting ending mark " + service.endingMark() + ", got " + mark.name
-				        + " instead. ";
-			}
-			if (mark.offsetInAudio < 2500) {
-				msg += "Expecting ending mark offset to be bigger, got " + mark.offsetInAudio
-				        + " as offset. ";
+			} else {
+				Mark mark = marks.get(0);
+				if (!engine.endingMark().equals(mark.name)) {
+					msg += "Expecting ending mark " + engine.endingMark() + ", got "
+					        + mark.name + " instead. ";
+				}
+				if (mark.offsetInAudio < 2500) {
+					msg += "Expecting ending mark offset to be bigger, got "
+					        + mark.offsetInAudio + " as offset. ";
+				}
 			}
 		}
 		if (!msg.isEmpty()) {
@@ -410,7 +411,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 			        && (poolkey != null || mLastTTS.reservedThreadNum() != 0
 			                || mLastTTS.getAudioOutputFormat() == null
 			                || newSynth.getAudioOutputFormat() == null || !mLastTTS
-			                .getAudioOutputFormat().equals(newSynth.getAudioOutputFormat())))
+			                .getAudioOutputFormat().matches(newSynth.getAudioOutputFormat())))
 				endSection(); // necessary because the same thread wouldn't be able to
 				              // concatenate outputs of different formats
 			mLastTTS = newSynth;

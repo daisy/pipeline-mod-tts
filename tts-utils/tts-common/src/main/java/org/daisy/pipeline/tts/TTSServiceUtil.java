@@ -49,9 +49,9 @@ public class TTSServiceUtil {
 	public static Throwable testTTS(TTSEngine tts, Voice v, String testStr, String ssmlMark,
 	        TTSResource resources) throws InterruptedException {
 
-		if (tts.getProvider().endingMark() != null) {
+		if (tts.endingMark() != null) {
 			if (ssmlMark == null)
-				ssmlMark = "<mark name=\"" + tts.getProvider().endingMark() + "\"/>";
+				ssmlMark = "<mark name=\"" + tts.endingMark() + "\"/>";
 			testStr += ssmlMark;
 		}
 		Collection<AudioBuffer> audioBuffers = null;
@@ -84,15 +84,15 @@ public class TTSServiceUtil {
 		}
 
 		//check the ending mark
-		if (tts.getProvider().endingMark() != null) {
+		if (tts.endingMark() != null) {
 			if (marks.size() != 1) {
 				return new TTSService.SynthesisException(
 				        "one bookmark events expected. Received " + marks.size() + " instead.");
 			}
 			Mark mark = marks.get(0);
-			if (!tts.getProvider().endingMark().equals(mark.name)) {
+			if (!tts.getProvider().equals(mark.name)) {
 				return new TTSService.SynthesisException("expecting ending mark "
-				        + tts.getProvider().endingMark() + ". Got " + mark.name + " instead ");
+				        + tts.endingMark() + ". Got " + mark.name + " instead ");
 			}
 			if (mark.offsetInAudio < 2500) {
 				return new TTSService.SynthesisException(

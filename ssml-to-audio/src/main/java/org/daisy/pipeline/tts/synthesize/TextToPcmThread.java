@@ -208,7 +208,7 @@ public class TextToPcmThread implements FormatSpecifications {
 	        String sentenceId, Voice voice, TTSResource threadResources, List<Mark> marks)
 	        throws SaxonApiException, SynthesisException, InterruptedException,
 	        MemoryException {
-		String transformed = transformSSML(ssml, tts.getProvider(), voice);
+		String transformed = transformSSML(ssml, tts, voice);
 		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
 		logEntry.ttsinput = transformed;
 		logEntry.actualVoice = voice;
@@ -223,7 +223,7 @@ public class TextToPcmThread implements FormatSpecifications {
 	        Voice voice, TTSResource threadResources, List<Mark> marks)
 	        throws SaxonApiException, SynthesisException, InterruptedException,
 	        MemoryException {
-		if (tts.getProvider().endingMark() != null) //can handle marks
+		if (tts.endingMark() != null) //can handle marks
 			return synthesizeSSML(tts, ssml, sentenceId, voice, threadResources, marks);
 		else {
 			Collection<Chunk> chunks = mSSMLSplitter.split(ssml);
@@ -350,8 +350,8 @@ public class TextToPcmThread implements FormatSpecifications {
 		}
 
 		//check validity of the result by using the ending mark
-		if (tts.getProvider().endingMark() != null
-		        && !(marks.size() > 0 && tts.getProvider().endingMark().equals(
+		if (tts.endingMark() != null
+		        && !(marks.size() > 0 && tts.endingMark().equals(
 		                marks.get(marks.size() - 1).name))) {
 			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
 
@@ -415,7 +415,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			        + ": something went wrong with " + originalVoice + ". Voice " + newVoice
 			        + " used instead to synthesize sentence");
 
-			if (!tts.getAudioOutputFormat().equals(mLastFormat))
+			if (!tts.getAudioOutputFormat().matches(mLastFormat))
 				flush(section, pcmOutput);
 		}
 		mLastFormat = tts.getAudioOutputFormat();
@@ -427,7 +427,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			// Should never happen since interruptions only occur during calls to TTS processors.
 		}
 
-		if (tts.getProvider().endingMark() != null) {
+		if (tts.endingMark() != null) {
 			marks = marks.subList(0, marks.size() - 1);
 		}
 
@@ -503,11 +503,11 @@ public class TextToPcmThread implements FormatSpecifications {
 		return (bytes / (format.getFrameRate() * format.getFrameSize()));
 	}
 
-	private String transformSSML(XdmNode ssml, TTSService service, Voice v)
+	private String transformSSML(XdmNode ssml, TTSEngine engine, Voice v)
 	        throws SaxonApiException {
 		mTransformParams.put("voice", v.name);
-		if (service.endingMark() != null)
-			mTransformParams.put("ending-mark", service.endingMark());
-		return mTransforms.get(service).transformToString(ssml, mTransformParams);
+		if (engine.endingMark() != null)
+			mTransformParams.put("ending-mark", engine.endingMark());
+		return mTransforms.get(engine.getProvider()).transformToString(ssml, mTransformParams);
 	}
 }

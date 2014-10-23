@@ -11,11 +11,6 @@ public abstract class AbstractTTSService implements TTSService {
 		return "";
 	}
 
-	@Override
-	public String endingMark() {
-		return null; //marks not handled
-	}
-
 	protected void loadSSMLadapter(ComponentContext context) {
 		mXSLTresource = context.getBundleContext().getBundle().getEntry("/transform-ssml.xsl");
 	}

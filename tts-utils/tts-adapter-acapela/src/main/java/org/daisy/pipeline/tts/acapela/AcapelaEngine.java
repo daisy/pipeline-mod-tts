@@ -412,4 +412,9 @@ public class AcapelaEngine extends TTSEngine {
 		return mMsPerWord;
 	}
 
+	@Override
+	public String endingMark() {
+		return "ending-mark";
+	}
+
 }

@@ -160,4 +160,13 @@ public abstract class TTSEngine {
 	public int expectedMillisecPerWord() {
 		return 100;
 	}
+
+	/**
+	 * @return the name of the mark that will be added to check whether all the
+	 *         SSML have been successfully synthesized. TTS processors that
+	 *         cannot handle marks must return null. Must be thread-safe.
+	 */
+	public String endingMark() {
+		return null; //marks not handled
+	}
 }

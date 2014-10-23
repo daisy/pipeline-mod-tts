@@ -57,11 +57,6 @@ public class AcapelaService extends AbstractTTSService {
 		return "jna";
 	}
 
-	@Override
-	public String endingMark() {
-		return "ending-mark";
-	}
-
 	private static int convertToInt(Map<String, String> params, String prop, int defaultVal)
 	        throws SynthesisException {
 		String str = params.get(prop);

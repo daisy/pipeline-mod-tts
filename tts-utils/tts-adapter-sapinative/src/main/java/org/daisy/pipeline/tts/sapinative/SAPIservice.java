@@ -13,18 +13,26 @@ public class SAPIservice extends AbstractTTSService {
 
 	private boolean mFirstLoad = true;
 	private AudioFormat mAudioFormat = null;
+	private boolean mHandlingMark = true;
 
 	@Override
 	public TTSEngine newEngine(Map<String, String> params) throws Throwable {
 		int sampleRate = convertToInt(params, "sapi.samplerate", 22050);
 		int bytesPerSample = convertToInt(params, "sapi.bytespersample", 2);
-		int priority = convertToInt(params, "priority", 7);
+		int priority = convertToInt(params, "sapi.priority", 7);
+
+		boolean handleMarks = true;
+		String markProp = "sapi.handle.marks";
+		String str = params.get(markProp);
+		if ("false".equalsIgnoreCase(str)) {
+			mHandlingMark = false;
+		}
 
 		AudioFormat audioFormat = new AudioFormat(sampleRate, 8 * bytesPerSample, 1, true,
 		        false);
 
 		synchronized (this) {
-			if (mAudioFormat != null && !mAudioFormat.equals(audioFormat)) {
+			if (mAudioFormat != null && !mAudioFormat.matches(audioFormat)) {
 				throw new InvalidAttributeValueException(
 				        "SAPI's audio properties cannot change at runtime.");
 			}
@@ -45,7 +53,7 @@ public class SAPIservice extends AbstractTTSService {
 		}
 
 		//allocate the engine
-		return new SAPIengine(this, audioFormat, priority);
+		return new SAPIengine(this, audioFormat, priority, handleMarks);
 	}
 
 	@Override
@@ -57,11 +65,6 @@ public class SAPIservice extends AbstractTTSService {
 	public String getVersion() {
 
 		return "native";
-	}
-
-	@Override
-	public String endingMark() {
-		return "ending-mark";
 	}
 
 	//OSGi callback

@@ -73,13 +73,6 @@ public interface TTSService {
 	public String getVersion();
 
 	/**
-	 * @return the name of the mark that will be added to check whether all the
-	 *         SSML have been successfully synthesized. TTS processors that
-	 *         cannot handle marks must return null. Must be thread-safe.
-	 */
-	public String endingMark();
-
-	/**
 	 * Must be thread safe.
 	 * 
 	 * @return the URL of the XSLT stylesheet used for transforming SSML into

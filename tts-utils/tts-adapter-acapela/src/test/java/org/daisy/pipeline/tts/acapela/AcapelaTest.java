@@ -107,7 +107,7 @@ public class AcapelaTest {
 	@Test
 	public void endingBookmark() throws SynthesisException, IOException, InterruptedException,
 	        MemoryException {
-		simpleBookmark(tts.getProvider().endingMark());
+		simpleBookmark(tts.endingMark());
 	}
 
 	/*
