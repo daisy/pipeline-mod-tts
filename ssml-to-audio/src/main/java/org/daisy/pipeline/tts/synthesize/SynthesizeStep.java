@@ -3,6 +3,8 @@ package org.daisy.pipeline.tts.synthesize;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Random;
@@ -41,11 +43,11 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	private XProcRuntime mRuntime;
 	private TTSRegistry mTTSRegistry;
 	private Random mRandGenerator;
-	//private String mTempDirectory;
 	private AudioServices mAudioServices;
 	private Semaphore mStartSemaphore;
 	private AudioBufferTracker mAudioBufferTracker;
 	private URIResolver mURIresolver;
+	private String mOutputDirOpt;
 
 	private static String convertSecondToString(double seconds) {
 		int iseconds = (int) (Math.floor(seconds));
@@ -102,7 +104,10 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 
 	@Override
 	public void setOption(QName name, RuntimeValue value) {
-		super.setOption(name, value);
+		if ("output-dir".equals(name.getLocalName())) {
+			mOutputDirOpt = value.getString();
+		} else
+			super.setOption(name, value);
 	}
 
 	public void reset() {
@@ -134,6 +139,15 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 
 		ConfigReader cr = new ConfigReader(config.read());
 
+		String logEnabledProp = cr.getProperty("log");
+		boolean logEnabled = "true".equalsIgnoreCase(logEnabledProp) && mOutputDirOpt != null
+		        && !mOutputDirOpt.isEmpty();
+		TTSLog log;
+		if (logEnabled) {
+			log = new TTSLogImpl();
+		} else
+			log = new TTSLogEmpty();
+
 		String tmpDir = cr.getProperty("audio.tmpdir");
 		if (tmpDir == null)
 			tmpDir = System.getProperty("java.io.tmpdir");
@@ -145,8 +159,6 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			audioOutputDir = new File(audioDir);
 		} while (audioOutputDir.exists());
 		audioOutputDir.mkdir();
-
-		TTSLog log = new TTSLog();
 
 		SSMLtoAudio ssmltoaudio = new SSMLtoAudio(audioOutputDir, mTTSRegistry, this,
 		        mAudioBufferTracker, mRuntime.getProcessor(), mURIresolver, cr, log);
@@ -205,8 +217,8 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		/*
 		 * Write the log file
 		 */
-		String output = cr.getProperty("logfile");
-		if (output != null) {
+		if (logEnabled) {
+			printInfo("writing TTS logs...");
 			TreeWriter xmlLog = new TreeWriter(runtime);
 			xmlLog.startDocument(runtime.getStaticBaseURI());
 			xmlLog.addStartElement(LogRootTag);
@@ -220,7 +232,8 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 
 				xmlLog.addAttribute(Log_attr_id, entry.getKey());
 				if (le.soundfile != null) {
-					xmlLog.addAttribute(Log_attr_file, le.soundfile);
+					String basename = new File(le.soundfile).getName();
+					xmlLog.addAttribute(Log_attr_file, basename);
 					xmlLog.addAttribute(Log_attr_begin, String.valueOf(le.beginInFile));
 					xmlLog.addAttribute(Log_attr_end, String.valueOf(le.endInFile));
 				}
@@ -251,18 +264,26 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			xmlLog.endDocument();
 			String content = xmlLog.getResult().toString();
 
-			synchronized (this) { //prevent conflicts when the same log file is used for parallel jobs
-				FileWriter fw = null;
+			FileWriter fw = null;
+
+			File outputdir;
+			try {
+				outputdir = new File(new URI(mOutputDirOpt).getPath());
+				if (!outputdir.exists()) {
+					outputdir.mkdirs();
+				}
+				File output = new File(outputdir, "tts-log.xml");
 				try {
+
 					fw = new FileWriter(output);
 				} catch (IOException e) {
-					printInfo("Cannot open log file " + output);
+					printInfo("Cannot open log file " + output.getAbsolutePath());
 				}
 				if (fw != null) {
 					try {
 						fw.write(content);
 					} catch (IOException e) {
-						printInfo("Cannot write in log file " + output);
+						printInfo("Cannot write in log file " + output.getAbsolutePath());
 					}
 					try {
 						fw.close();
@@ -270,6 +291,10 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 						//ignore
 					}
 				}
+
+			} catch (URISyntaxException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
 			}
 
 		}

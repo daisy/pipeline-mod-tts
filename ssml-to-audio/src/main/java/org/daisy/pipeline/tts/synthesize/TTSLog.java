@@ -2,7 +2,6 @@ package org.daisy.pipeline.tts.synthesize;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,7 +15,7 @@ import org.daisy.pipeline.tts.Voice;
  * allocated for every new Pipeline job and written to an external file after
  * the TTS work of the job is done.
  */
-public class TTSLog {
+public interface TTSLog {
 	enum ErrorCode {
 		UNEXPECTED_VOICE,
 		AUDIO_MISSING,
@@ -42,6 +41,7 @@ public class TTSLog {
 		private String message;
 	}
 
+	//TODO: make this class an interface or make its content accessible only through TTSLog
 	public static class Entry {
 		List<Error> errors = new ArrayList<Error>();
 		public XdmNode ssml; //SSML before being converted to 'ttsinput'
@@ -57,37 +57,17 @@ public class TTSLog {
 	/**
 	 * Supposed to be called within a single-threaded context
 	 */
-	public Entry getOrCreateEntry(String id) {
-		Entry res = mLog.get(id);
-		if (res != null)
-			return res;
-		res = new Entry();
-		mLog.put(id, res);
-		return res;
-	}
+	Entry getOrCreateEntry(String id);
 
 	/**
 	 * Can be called within a multi-threaded context once all the calls to
 	 * getOrCreateEntry() are done.
 	 */
-	public Entry getWritableEntry(String id) {
-		return mLog.get(id);
-	}
+	Entry getWritableEntry(String id);
 
-	public Set<Map.Entry<String, Entry>> getEntries() {
-		return mLog.entrySet();
-	}
+	Set<Map.Entry<String, Entry>> getEntries();
 
-	public void addGeneralError(ErrorCode errcode, String message) {
-		synchronized (generalErrors) {
-			generalErrors.add(new Error(errcode, message));
-		}
-	}
+	void addGeneralError(ErrorCode errcode, String message);
 
-	public Collection<Error> readonlyGeneralErrors() {
-		return generalErrors;
-	}
-
-	private List<Error> generalErrors = new ArrayList<Error>();
-	private Map<String, Entry> mLog = new HashMap<String, Entry>();
+	Collection<Error> readonlyGeneralErrors();
 }

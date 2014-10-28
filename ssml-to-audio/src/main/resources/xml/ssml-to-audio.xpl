@@ -6,6 +6,7 @@
   <p:input port="source" primary="true" sequence="true"/>
   <p:input port="config"/>
   <p:output port="result" primary="true" sequence="false"/>
+  <p:option name="output-dir" select="''"/>
 
   <p:import href="synthesize.xpl" />
 
@@ -13,6 +14,9 @@
     <p:input port="config">
       <p:pipe port="config" step="main"/>
     </p:input>
+    <p:with-option name="output-dir" select="$output-dir">
+      <p:empty/>
+    </p:with-option>
   </px:synthesize>
 
   <!-- uncomment those lines to rename the audio paths -->
