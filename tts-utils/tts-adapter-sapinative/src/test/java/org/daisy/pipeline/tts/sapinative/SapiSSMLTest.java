@@ -50,7 +50,10 @@ public class SapiSSMLTest {
 		tw.addStartElement(new QName(SsmlNs, "y"));
 		tw.addAttribute(new QName(null, "attr"), "attr-val");
 		tw.addEndElement();
-		tw.addText("this is text");
+		tw.addStartElement(new QName(SsmlNs, "token"));
+		tw.addText("this");
+		tw.addEndElement();
+		tw.addText(" is text");
 		tw.addEndElement();
 
 		Map<String, Object> params = new TreeMap<String, Object>();

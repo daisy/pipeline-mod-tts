@@ -26,6 +26,7 @@ import org.daisy.pipeline.tts.AudioBufferTracker;
 import org.daisy.pipeline.tts.SSMLMarkSplitter;
 import org.daisy.pipeline.tts.SSMLMarkSplitter.Chunk;
 import org.daisy.pipeline.tts.SoundUtil;
+import org.daisy.pipeline.tts.TTSEngine;
 import org.daisy.pipeline.tts.TTSRegistry;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSService;
@@ -35,6 +36,8 @@ import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.TTSTimeout;
 import org.daisy.pipeline.tts.TTSTimeout.ThreadFreeInterrupter;
 import org.daisy.pipeline.tts.Voice;
+import org.daisy.pipeline.tts.VoiceManager;
+import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +60,7 @@ import com.google.common.collect.Iterables;
  */
 public class TextToPcmThread implements FormatSpecifications {
 	private Logger ServerLogger = LoggerFactory.getLogger(TextToPcmThread.class);
-	private Map<TTSService, TTSResource> mResources = new HashMap<TTSService, TTSResource>();
+	private Map<TTSEngine, TTSResource> mResources = new HashMap<TTSEngine, TTSResource>();
 	private Map<TTSService, ThreadUnsafeXslTransformer> mTransforms = new HashMap<TTSService, ThreadUnsafeXslTransformer>();
 	private int mFileNrInSection; //usually = 0, but incremented when a flush occurs within a section
 	private List<SoundFileLink> mSoundFileLinks; //result provided back to the SynthesizeStep caller
@@ -73,18 +76,23 @@ public class TextToPcmThread implements FormatSpecifications {
 	private SSMLMarkSplitter mSSMLSplitter;
 	private Map<String, Object> mTransformParams = new TreeMap<String, Object>();
 	private Map<TTSService, CompiledStylesheet> mSSMLTransformers;
+	private VoiceManager mVoiceManager;
+	private TTSLog mTTSLog;
 
 	void start(final ConcurrentLinkedQueue<ContiguousText> input,
 	        final BlockingQueue<ContiguousPCM> pcmOutput, TTSRegistry ttsregistry,
-	        SSMLMarkSplitter ssmlSplitter, final IProgressListener progressListener,
-	        IPipelineLogger pLogger, AudioBufferTracker AudioBufferTracker,
-	        final int maxQueueEltSize, Map<TTSService, CompiledStylesheet> ssmlTransformers) {
+	        VoiceManager voiceManager, SSMLMarkSplitter ssmlSplitter,
+	        final IProgressListener progressListener, IPipelineLogger pLogger,
+	        AudioBufferTracker AudioBufferTracker, final int maxQueueEltSize,
+	        Map<TTSService, CompiledStylesheet> ssmlTransformers, TTSLog ttsLog) {
 		mSSMLTransformers = ssmlTransformers;
 		mSSMLSplitter = ssmlSplitter;
 		mSoundFileLinks = new ArrayList<SoundFileLink>();
 		mTTSRegistry = ttsregistry;
 		mPipelineLogger = pLogger;
 		mAudioBufferTracker = AudioBufferTracker;
+		mVoiceManager = voiceManager;
+		mTTSLog = ttsLog;
 		flush(null, pcmOutput);
 
 		mThread = new Thread() {
@@ -106,10 +114,10 @@ public class TextToPcmThread implements FormatSpecifications {
 						} catch (Throwable t) {
 							StringWriter sw = new StringWriter();
 							t.printStackTrace(new PrintWriter(sw));
-							mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
-							        + ": sentence " + sentence.getID()
-							        + " caused the current thread to stop because of error: "
-							        + sw.toString());
+							mTTSLog.getWritableEntry(sentence.getID()).errors
+							        .add(new TTSLog.Error(TTSLog.ErrorCode.CRITICAL_ERROR,
+							                "the current thread is stopping because of error: "
+							                        + sw.toString()));
 							breakloop = true;
 							break;
 						}
@@ -122,7 +130,7 @@ public class TextToPcmThread implements FormatSpecifications {
 				timeout.close();
 
 				//release the TTS resources
-				for (Map.Entry<TTSService, TTSResource> e : mResources.entrySet()) {
+				for (Map.Entry<TTSEngine, TTSResource> e : mResources.entrySet()) {
 					releaseResource(e.getKey(), e.getValue());
 				}
 			}
@@ -143,45 +151,48 @@ public class TextToPcmThread implements FormatSpecifications {
 		return mSoundFileLinks;
 	}
 
-	private void releaseResource(TTSService tts, TTSResource r) {
+	private void releaseResource(TTSEngine tts, TTSResource r) {
 		if (r == null) {
 			return;
 		}
 		synchronized (r) {
-			if (!r.released) {
-				try {
-					tts.releaseThreadResources(r);
-				} catch (Throwable t) {
-					StringWriter sw = new StringWriter();
-					t.printStackTrace(new PrintWriter(sw));
-					ServerLogger.debug("error while releasing resources of "
-					        + TTSServiceUtil.displayName(tts) + ": " + sw.toString());
-				}
-				r.released = true;
+			try {
+				tts.releaseThreadResources(r);
+			} catch (Throwable t) {
+				StringWriter sw = new StringWriter();
+				t.printStackTrace(new PrintWriter(sw));
+				String msg = "error while releasing resources of "
+				        + TTSServiceUtil.displayName(tts.getProvider()) + ": " + sw.toString();
+				mTTSLog.addGeneralError(ErrorCode.WARNING, msg);
 			}
 		}
 	}
 
 	private void flush(ContiguousText section, BlockingQueue<ContiguousPCM> pcmOutput) {
 		if (section != null && mLinksOfCurrentFile.size() > 0) {
-			String filePrefix = String.format("part%04d_%02d_%03d", section
-			        .getDocumentPosition(), section.getDocumentSplitPosition(),
-			        mFileNrInSection);
+			if (mLastFormat == null) {
+				mTTSLog.addGeneralError(ErrorCode.AUDIO_MISSING,
+				        "cannot flush the audio data because the audio format is null");
+			} else {
+				String filePrefix = String.format("part%04d_%02d_%03d", section
+				        .getDocumentPosition(), section.getDocumentSplitPosition(),
+				        mFileNrInSection);
 
-			ContiguousPCM pcm = new ContiguousPCM(section.getAudioFormat(),
-			        mBuffersOfCurrentFile, section.getAudioOutputDir(), filePrefix);
-			for (SoundFileLink clip : mLinksOfCurrentFile) {
-				clip.soundFileURIHolder = pcm.getURIholder();
+				ContiguousPCM pcm = new ContiguousPCM(mLastFormat, mBuffersOfCurrentFile,
+				        section.getAudioOutputDir(), filePrefix);
+				for (SoundFileLink clip : mLinksOfCurrentFile) {
+					clip.soundFileURIHolder = pcm.getURIholder();
+				}
+				try {
+					mAudioBufferTracker.transferToEncoding(mMemFootprint, pcm.sizeInBytes());
+				} catch (InterruptedException e) {
+					// Should never happen since interruptions only occur during calls to TTS processors.
+				}
+				pcmOutput.add(pcm);
+				pcm = null;
+				mSoundFileLinks.addAll(mLinksOfCurrentFile);
+				++mFileNrInSection;
 			}
-			try {
-				mAudioBufferTracker.transferToEncoding(mMemFootprint, pcm.sizeInBytes());
-			} catch (InterruptedException e) {
-				// Should never happen since interruptions only occur during calls to TTS processors.
-			}
-			pcmOutput.add(pcm);
-			pcm = null;
-			mSoundFileLinks.addAll(mLinksOfCurrentFile);
-			++mFileNrInSection;
 		}
 		mLinksOfCurrentFile = new ArrayList<SoundFileLink>();
 		mBuffersOfCurrentFile = new ArrayList<AudioBuffer>();
@@ -193,10 +204,14 @@ public class TextToPcmThread implements FormatSpecifications {
 	/**
 	 * Wrapper around TTSService.synthesize() to transform the SSML into string
 	 */
-	public Collection<AudioBuffer> synthesizeSSML(TTSService tts, XdmNode ssml, Voice voice,
-	        TTSResource threadResources, List<Mark> marks) throws SaxonApiException,
-	        SynthesisException, InterruptedException, MemoryException {
+	public Collection<AudioBuffer> synthesizeSSML(TTSEngine tts, XdmNode ssml,
+	        String sentenceId, Voice voice, TTSResource threadResources, List<Mark> marks)
+	        throws SaxonApiException, SynthesisException, InterruptedException,
+	        MemoryException {
 		String transformed = transformSSML(ssml, tts, voice);
+		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
+		logEntry.ttsinput = transformed;
+		logEntry.actualVoice = voice;
 		return tts.synthesize(transformed, ssml, voice, threadResources, marks,
 		        mAudioBufferTracker, false);
 	}
@@ -204,11 +219,12 @@ public class TextToPcmThread implements FormatSpecifications {
 	/**
 	 * Wrapper around synthesizeSSML() to handle marks
 	 */
-	public Iterable<AudioBuffer> synthesize(TTSService tts, XdmNode ssml, Voice voice,
-	        TTSResource threadResources, List<Mark> marks) throws SaxonApiException,
-	        SynthesisException, InterruptedException, MemoryException {
+	public Iterable<AudioBuffer> synthesize(TTSEngine tts, XdmNode ssml, String sentenceId,
+	        Voice voice, TTSResource threadResources, List<Mark> marks)
+	        throws SaxonApiException, SynthesisException, InterruptedException,
+	        MemoryException {
 		if (tts.endingMark() != null) //can handle marks
-			return synthesizeSSML(tts, ssml, voice, threadResources, marks);
+			return synthesizeSSML(tts, ssml, sentenceId, voice, threadResources, marks);
 		else {
 			Collection<Chunk> chunks = mSSMLSplitter.split(ssml);
 			Iterable<AudioBuffer> result = new ArrayList<AudioBuffer>();
@@ -216,7 +232,8 @@ public class TextToPcmThread implements FormatSpecifications {
 			for (Chunk chunk : chunks) {
 				Collection<AudioBuffer> buffers = null;
 				try {
-					buffers = synthesizeSSML(tts, ssml, voice, threadResources, null);
+					buffers = synthesizeSSML(tts, ssml, sentenceId, voice, threadResources,
+					        null);
 				} catch (MemoryException | SaxonApiException | SynthesisException
 				        | InterruptedException e) {
 					//TODO: flush the buffers here
@@ -241,7 +258,7 @@ public class TextToPcmThread implements FormatSpecifications {
 	 * @return null if something went wrong
 	 */
 	private Iterable<AudioBuffer> speakWithVoice(Sentence sentence, Voice v,
-	        final TTSService tts, List<Mark> marks, TTSTimeout timeout) throws MemoryException {
+	        final TTSEngine tts, List<Mark> marks, TTSTimeout timeout) throws MemoryException {
 		//allocate a TTS resource if necessary
 		TTSResource resource = mResources.get(tts);
 		if (resource == null) {
@@ -249,30 +266,32 @@ public class TextToPcmThread implements FormatSpecifications {
 				timeout.enableForCurrentThread(3); //3 seconds
 				resource = mTTSRegistry.allocateResourceFor(tts);
 			} catch (SynthesisException e) {
-				ServerLogger.warn("error when allocating resources for "
-				        + TTSServiceUtil.displayName(tts) + ": " + e);
+				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+				        ErrorCode.WARNING, "Error while allocating resources for "
+				                + TTSServiceUtil.displayName(tts.getProvider()) + ": " + e));
+
 				return null;
 			} catch (InterruptedException e) {
-				ServerLogger.warn("Timeout while trying to allocate resources for "
-				        + TTSServiceUtil.displayName(tts));
+				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+				        ErrorCode.WARNING, "Timeout while trying to allocate resources for "
+				                + TTSServiceUtil.displayName(tts.getProvider())));
 				return null;
 			} finally {
 				timeout.disable();
 			}
 			if (resource == null) {
 				//TTS not working anymore?
-				mPipelineLogger
-				        .printInfo("Could not allocate resource for "
-				                + TTSServiceUtil.displayName(tts)
-				                + " (it has probably been stopped).");
+				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+				        ErrorCode.WARNING, "Could not allocate resource for "
+				                + TTSServiceUtil.displayName(tts.getProvider())
+				                + " (it has probably been stopped)."));
 				return null; //it will try with another TTS
 			}
-			mPipelineLogger.printInfo("Resource allocated for "
-			        + TTSServiceUtil.displayName(tts));
 			mResources.put(tts, resource);
 
-			if (!mTransforms.containsKey(tts)) {
-				mTransforms.put(tts, mSSMLTransformers.get(tts).newTransformer());
+			TTSService service = tts.getProvider();
+			if (!mTransforms.containsKey(service)) {
+				mTransforms.put(service, mSSMLTransformers.get(service).newTransformer());
 			}
 		}
 
@@ -284,35 +303,48 @@ public class TextToPcmThread implements FormatSpecifications {
 		TTSTimeout.ThreadFreeInterrupter interrupter = new ThreadFreeInterrupter() {
 			@Override
 			public void threadFreeInterrupt() {
-				ServerLogger.warn("Forcing interruption of the current work of "
-				        + TTSServiceUtil.displayName(tts) + "...");
+				String msg = "Forcing interruption of the current work of "
+				        + TTSServiceUtil.displayName(tts.getProvider()) + "...";
+				ServerLogger.warn(msg);
+				mTTSLog.addGeneralError(ErrorCode.WARNING, msg);
 				tts.interruptCurrentWork(fresource);
 			}
 		};
 		try {
 			timeout.enableForCurrentThread(interrupter, timeoutSecs);
 			synchronized (resource) {
-				if (resource.released) {
-					mPipelineLogger.printInfo("Resource of " + TTSServiceUtil.displayName(tts)
-					        + " no longer valid. It has probably been stopped.");
+				if (resource.invalid) {
+					String msg = "Resource of "
+					        + TTSServiceUtil.displayName(tts.getProvider())
+					        + " is no longer valid. The corresponding service has probably been stopped.";
+					mPipelineLogger.printInfo(msg);
+					mTTSLog.addGeneralError(ErrorCode.WARNING, msg);
 					return null;
 				}
-				pcm = synthesize(tts, sentence.getText(), v, resource, marks);
+				pcm = synthesize(tts, sentence.getText(), sentence.getID(), v, resource, marks);
 			}
 		} catch (InterruptedException e) {
-			ServerLogger.warn("timeout (" + timeoutSecs
-			        + " seconds) fired while speaking with " + TTSServiceUtil.displayName(tts)
-			        + " on " + getPrintableContext(sentence, tts, v));
+			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+			        ErrorCode.WARNING, "timeout (" + timeoutSecs
+			                + " seconds) fired while speaking with "
+			                + TTSServiceUtil.displayName(tts.getProvider())));
+
 			return null;
 		} catch (SynthesisException e) {
-			ServerLogger.warn("error while speaking with " + TTSServiceUtil.displayName(tts)
-			        + " : " + e);
+			StringWriter sw = new StringWriter();
+			e.printStackTrace(new PrintWriter(sw));
+			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+			        ErrorCode.WARNING, "error while speaking with "
+			                + TTSServiceUtil.displayName(tts.getProvider()) + " : " + e + ":"
+			                + sw.toString()));
+
 			return null;
 		} catch (MemoryException e) {
 			throw e;
 		} catch (SaxonApiException e) {
-			ServerLogger.warn("error while transforming SSML with the XSLT of "
-			        + TTSServiceUtil.displayName(tts) + " : " + e);
+			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+			        ErrorCode.WARNING, "error while transforming SSML with the XSLT of "
+			                + TTSServiceUtil.displayName(tts.getProvider()) + " : " + e));
 		} finally {
 			timeout.disable();
 		}
@@ -322,9 +354,12 @@ public class TextToPcmThread implements FormatSpecifications {
 		        && !(marks.size() > 0 && tts.endingMark().equals(
 		                marks.get(marks.size() - 1).name))) {
 			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
-			ServerLogger.warn("missing ending mark with " + TTSServiceUtil.displayName(tts)
-			        + " for " + getPrintableContext(sentence, tts, v)
-			        + ". Number of marks received: " + marks.size());
+
+			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+			        ErrorCode.WARNING, "missing ending mark with "
+			                + TTSServiceUtil.displayName(tts.getProvider())
+			                + ". Number of marks received: " + marks.size()));
+
 			return null;
 		}
 		return pcm;
@@ -332,7 +367,7 @@ public class TextToPcmThread implements FormatSpecifications {
 
 	private void speak(ContiguousText section, Sentence sentence,
 	        BlockingQueue<ContiguousPCM> pcmOutput, TTSTimeout timeout, int maxQueueEltSize) {
-		TTSService tts = sentence.getTTSproc();
+		TTSEngine tts = sentence.getTTSproc();
 		Voice originalVoice = sentence.getVoice();
 		List<Mark> marks = new ArrayList<Mark>();
 		Iterable<AudioBuffer> pcm;
@@ -349,16 +384,15 @@ public class TextToPcmThread implements FormatSpecifications {
 			mResources.remove(tts);
 
 			//Find another TTS vendor for this sentence
-			Voice newVoice = mTTSRegistry.getCurrentVoiceManager().findSecondaryVoice(
-			        sentence.getVoice());
+			Voice newVoice = mVoiceManager.findSecondaryVoice(sentence.getVoice());
 			if (newVoice == null) {
-				mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
-				        + ": something went wrong but no fallback voice can be found for "
-				        + originalVoice + ". Sentence with id=" + sentence.getID()
-				        + " won't be synthesized.");
+				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+				        TTSLog.ErrorCode.AUDIO_MISSING,
+				        "  something went wrong but no fallback voice can be found for "
+				                + originalVoice));
 				return;
 			}
-			tts = mTTSRegistry.getCurrentVoiceManager().getTTS(newVoice); //cannot return null in this case
+			tts = mVoiceManager.getTTS(newVoice); //cannot return null in this case
 
 			//Try with the new vendor
 			marks.clear();
@@ -370,21 +404,18 @@ public class TextToPcmThread implements FormatSpecifications {
 				return;
 			}
 			if (pcm == null) {
-				mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
-				        + ": something went wrong with " + originalVoice
-				        + " but fallback voice " + newVoice
-				        + " didn't work either. Sentence with id=" + sentence.getID()
-				        + " won't be synthesized.");
+				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+				        TTSLog.ErrorCode.AUDIO_MISSING, " something went wrong with "
+				                + originalVoice + " and fallback voice " + newVoice
+				                + " didn't work either"));
 				return;
 			}
 
-			mPipelineLogger
-			        .printInfo(IPipelineLogger.UNEXPECTED_VOICE
-			                + ": something went wrong with " + originalVoice + ". Used voice "
-			                + newVoice + " instead to synthesize sentence with id="
-			                + sentence.getID());
+			mPipelineLogger.printInfo(IPipelineLogger.UNEXPECTED_VOICE
+			        + ": something went wrong with " + originalVoice + ". Voice " + newVoice
+			        + " used instead to synthesize sentence");
 
-			if (!tts.getAudioOutputFormat().equals(mLastFormat))
+			if (!tts.getAudioOutputFormat().matches(mLastFormat))
 				flush(section, pcmOutput);
 		}
 		mLastFormat = tts.getAudioOutputFormat();
@@ -456,9 +487,8 @@ public class TextToPcmThread implements FormatSpecifications {
 	}
 
 	private void printMemError(Sentence sentence, MemoryException e) {
-		mPipelineLogger.printInfo(IPipelineLogger.AUDIO_MISSING
-		        + ": out of memory when processing sentence with id=" + sentence.getID()
-		        + " (" + e + "). It won't be synthesized.");
+		mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
+		        ErrorCode.AUDIO_MISSING, "out of memory when processing sentence"));
 	}
 
 	private void addBuffers(Iterable<AudioBuffer> toadd) throws InterruptedException {
@@ -473,31 +503,11 @@ public class TextToPcmThread implements FormatSpecifications {
 		return (bytes / (format.getFrameRate() * format.getFrameSize()));
 	}
 
-	private String transformSSML(XdmNode ssml, TTSService tts, Voice v)
+	private String transformSSML(XdmNode ssml, TTSEngine engine, Voice v)
 	        throws SaxonApiException {
 		mTransformParams.put("voice", v.name);
-		if (tts.endingMark() != null)
-			mTransformParams.put("ending-mark", tts.endingMark());
-		return mTransforms.get(tts).transformToString(ssml, mTransformParams);
-	}
-
-	private String getPrintableContext(Sentence sentence, TTSService tts, Voice v) {
-		String res = "original SSML: " + getPrintableLongString(sentence.getText().toString());
-		try {
-			res += ", serialized SSML: "
-			        + getPrintableLongString(transformSSML(sentence.getText(), tts, v));
-		} catch (SaxonApiException e) {
-		}
-		return res;
-	}
-
-	private static String getPrintableLongString(String str) {
-		int maxsize = 500;
-		if (str.length() <= maxsize)
-			return str;
-		else {
-			return str.substring(0, maxsize / 2) + "..."
-			        + str.substring(str.length() - maxsize / 2);
-		}
+		if (engine.endingMark() != null)
+			mTransformParams.put("ending-mark", engine.endingMark());
+		return mTransforms.get(engine.getProvider()).transformToString(ssml, mTransformParams);
 	}
 }

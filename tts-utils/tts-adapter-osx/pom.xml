@@ -27,11 +27,6 @@
       <artifactId>junit</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- For the binary finder: -->
-    <dependency>
-      <groupId>org.daisy.pipeline</groupId>
-      <artifactId>common-utils</artifactId>
-    </dependency>
   </dependencies>
 
   <build>
