@@ -1,7 +1,10 @@
 package org.daisy.pipeline.tts.synthesize;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
@@ -17,6 +20,8 @@ import org.daisy.pipeline.audio.AudioServices;
 import org.daisy.pipeline.tts.AudioBufferTracker;
 import org.daisy.pipeline.tts.TTSRegistry;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
+import org.daisy.pipeline.tts.config.ConfigReader;
+import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 
 import com.google.common.collect.Iterables;
 import com.xmlcalabash.core.XProcRuntime;
@@ -31,11 +36,12 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
         IPipelineLogger {
 
 	private ReadablePipe source = null;
+	private ReadablePipe config = null;
 	private WritablePipe result = null;
 	private XProcRuntime mRuntime;
 	private TTSRegistry mTTSRegistry;
 	private Random mRandGenerator;
-	private String mTempDirectory;
+	//private String mTempDirectory;
 	private AudioServices mAudioServices;
 	private Semaphore mStartSemaphore;
 	private AudioBufferTracker mAudioBufferTracker;
@@ -68,9 +74,6 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		mRuntime = runtime;
 		mTTSRegistry = ttsRegistry;
 		mRandGenerator = new Random();
-		mTempDirectory = System.getProperty("audio.tmpdir");
-		if (mTempDirectory == null)
-			mTempDirectory = System.getProperty("java.io.tmpdir");
 	}
 
 	@Override
@@ -88,6 +91,8 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	public void setInput(String port, ReadablePipe pipe) {
 		if ("source".equals(port)) {
 			source = pipe;
+		} else if ("config".equals(port)) {
+			config = pipe;
 		}
 	}
 
@@ -102,6 +107,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 
 	public void reset() {
 		source.resetReader();
+		config.resetReader();
 		result.resetWriter();
 	}
 
@@ -126,20 +132,24 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			return;
 		}
 
-		mTTSRegistry.openSynthesizingContext(mRuntime.getProcessor()
-		        .getUnderlyingConfiguration());
+		ConfigReader cr = new ConfigReader(config.read());
 
+		String tmpDir = cr.getProperty("audio.tmpdir");
+		if (tmpDir == null)
+			tmpDir = System.getProperty("java.io.tmpdir");
 		File audioOutputDir = null;
 		do {
-			String audioDir = mTempDirectory + "/";
+			String audioDir = tmpDir + "/";
 			for (int k = 0; k < 2; ++k)
 				audioDir += Long.toString(mRandGenerator.nextLong(), 32);
 			audioOutputDir = new File(audioDir);
 		} while (audioOutputDir.exists());
 		audioOutputDir.mkdir();
 
+		TTSLog log = new TTSLog();
+
 		SSMLtoAudio ssmltoaudio = new SSMLtoAudio(audioOutputDir, mTTSRegistry, this,
-		        mAudioBufferTracker, mRuntime.getProcessor(), mURIresolver);
+		        mAudioBufferTracker, mRuntime.getProcessor(), mURIresolver, cr, log);
 
 		Iterable<SoundFileLink> soundFragments = Collections.EMPTY_LIST;
 		try {
@@ -156,7 +166,6 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			mRuntime.error(e);
 			return;
 		} finally {
-			mTTSRegistry.closeSynthesizingContext();
 			mStartSemaphore.release();
 		}
 
@@ -175,19 +184,101 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 				tw.addAttribute(Audio_attr_src, soundFileURI);
 				tw.addEndElement();
 				++num;
+				TTSLog.Entry entry = log.getOrCreateEntry(sf.xmlid);
+				entry.soundfile = soundFileURI;
+				entry.beginInFile = sf.clipBegin;
+				entry.endInFile = sf.clipEnd;
 			} else {
-				printInfo("error: text with id=" + sf.xmlid
-				        + " has not been fully synthesized or encoded.");
+				log.getOrCreateEntry(sf.xmlid).errors.add(new TTSLog.Error(
+				        ErrorCode.AUDIO_MISSING, "not synthesized or not encoded"));
 			}
 		}
 		tw.addEndElement();
 		tw.endDocument();
+		result.write(tw.getResult());
 
 		printInfo("number of synthesized sound fragments: " + num);
 		printInfo("audio encoding unreleased bytes : "
 		        + mAudioBufferTracker.getUnreleasedEncondingMem());
 		printInfo("TTS unreleased bytes: " + mAudioBufferTracker.getUnreleasedTTSMem());
 
-		result.write(tw.getResult());
+		/*
+		 * Write the log file
+		 */
+		String output = cr.getProperty("logfile");
+		if (output != null) {
+			TreeWriter xmlLog = new TreeWriter(runtime);
+			xmlLog.startDocument(runtime.getStaticBaseURI());
+			xmlLog.addStartElement(LogRootTag);
+			xmlLog.startContent();
+			for (TTSLog.Error err : log.readonlyGeneralErrors()) {
+				writeXMLerror(xmlLog, err);
+			}
+			for (Map.Entry<String, TTSLog.Entry> entry : log.getEntries()) {
+				TTSLog.Entry le = entry.getValue();
+				xmlLog.addStartElement(LogTextTag);
+
+				xmlLog.addAttribute(Log_attr_id, entry.getKey());
+				if (le.soundfile != null) {
+					xmlLog.addAttribute(Log_attr_file, le.soundfile);
+					xmlLog.addAttribute(Log_attr_begin, String.valueOf(le.beginInFile));
+					xmlLog.addAttribute(Log_attr_end, String.valueOf(le.endInFile));
+				}
+				if (le.selectedVoice != null)
+					xmlLog.addAttribute(Log_attr_selected_voice, le.selectedVoice.toString());
+				if (le.actualVoice != null)
+					xmlLog.addAttribute(Log_attr_actual_voice, le.actualVoice.toString());
+
+				for (TTSLog.Error err : le.errors)
+					writeXMLerror(xmlLog, err);
+
+				if (le.ssml != null) {
+					xmlLog.addStartElement(LogSsmlTag);
+					xmlLog.addSubtree(le.ssml);
+					xmlLog.addEndElement();
+				}
+
+				if (le.ttsinput != null && !le.ttsinput.isEmpty()) {
+					xmlLog.addStartElement(LogInpTag);
+					xmlLog.addText(le.ttsinput);
+					xmlLog.addEndElement();
+				}
+
+				xmlLog.addEndElement(); //LogTextTag
+			}
+
+			xmlLog.addEndElement(); //root
+			xmlLog.endDocument();
+			String content = xmlLog.getResult().toString();
+
+			synchronized (this) { //prevent conflicts when the same log file is used for parallel jobs
+				FileWriter fw = null;
+				try {
+					fw = new FileWriter(output);
+				} catch (IOException e) {
+					printInfo("Cannot open log file " + output);
+				}
+				if (fw != null) {
+					try {
+						fw.write(content);
+					} catch (IOException e) {
+						printInfo("Cannot write in log file " + output);
+					}
+					try {
+						fw.close();
+					} catch (IOException e) {
+						//ignore
+					}
+				}
+			}
+
+		}
+	}
+
+	private static void writeXMLerror(TreeWriter tw, TTSLog.Error err) {
+		tw.addStartElement(LogErrorTag);
+		tw.addAttribute(Log_attr_code, err.getErrorCode().toString());
+		tw.addText(err.getMessage());
+		tw.addEndElement();
 	}
 }

@@ -9,7 +9,11 @@
 
   <p:import href="synthesize.xpl" />
 
-  <px:synthesize/>
+  <px:synthesize>
+    <p:input port="config">
+      <p:pipe port="config" step="main"/>
+    </p:input>
+  </px:synthesize>
 
   <!-- uncomment those lines to rename the audio paths -->
   <!-- <p:for-each name="renaming"> -->

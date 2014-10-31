@@ -2,6 +2,7 @@ package org.daisy.pipeline.tts;
 
 public class Voice {
 	public Voice(String vendor, String name) {
+		//we keep the strings in their full case form because some engines are case sensitive (e.g. SAPI)
 		this.vendor = vendor;
 		if (vendor == null)
 			this.vendor = "";
