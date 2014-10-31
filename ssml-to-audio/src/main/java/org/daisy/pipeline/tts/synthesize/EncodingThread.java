@@ -1,10 +1,12 @@
 package org.daisy.pipeline.tts.synthesize;
 
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 
 import org.daisy.pipeline.audio.AudioEncoder;
 import org.daisy.pipeline.audio.AudioServices;
 import org.daisy.pipeline.tts.AudioBufferTracker;
+import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 
 import com.google.common.base.Optional;
 
@@ -18,7 +20,8 @@ public class EncodingThread {
 
 	void start(final AudioServices encoderRegistry,
 	        final BlockingQueue<ContiguousPCM> inputPCM, final IPipelineLogger logger,
-	        final AudioBufferTracker audioBufferTracker) {
+	        final AudioBufferTracker audioBufferTracker, Map<String, String> TTSproperties,
+	        final TTSLog ttslog) {
 		mThread = new Thread() {
 			@Override
 			public void run() {
@@ -27,8 +30,9 @@ public class EncodingThread {
 					try {
 						job = inputPCM.take();
 					} catch (InterruptedException e) {
-						logger.printInfo(IPipelineLogger.AUDIO_MISSING
-						        + ": encoding thread has been interrupted.");
+						String msg = "encoding thread has been interrupted";
+						logger.printInfo(msg);
+						ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
 						break;
 					}
 					if (job.isEndOfQueue()) {
@@ -40,10 +44,12 @@ public class EncodingThread {
 						if (encoder == null) {
 							job = null;
 							audioBufferTracker.releaseEncodersMemory(jobSize);
-							logger.printInfo(IPipelineLogger.AUDIO_MISSING
-							        + ": No audio encoder found. Encoding thread is stopping...");
+							String msg = "No audio encoder found. Encoding thread is stopping...";
+							logger.printInfo(msg);
+							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
 							break;
 						}
+						//TODO: pass the properties to the encoder
 						Optional<String> destURI = encoder.encode(job.getBuffers(), job
 						        .getAudioFormat(), job.getDestinationDirectory(), job
 						        .getDestinationFilePrefix());

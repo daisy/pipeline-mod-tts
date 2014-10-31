@@ -5,13 +5,13 @@ import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
 
-import org.daisy.pipeline.tts.TTSService;
+import org.daisy.pipeline.tts.TTSEngine;
 import org.daisy.pipeline.tts.Voice;
 
 import com.google.common.base.CharMatcher;
 
 class Sentence implements FormatSpecifications {
-	Sentence(TTSService ttsProc, Voice voice, XdmNode text) {
+	Sentence(TTSEngine ttsProc, Voice voice, XdmNode text) {
 		mVoice = voice;
 		mText = text;
 		mTTSproc = ttsProc;
@@ -34,7 +34,7 @@ class Sentence implements FormatSpecifications {
 		return mText;
 	}
 
-	TTSService getTTSproc() {
+	TTSEngine getTTSproc() {
 		return mTTSproc;
 	}
 
@@ -56,5 +56,5 @@ class Sentence implements FormatSpecifications {
 	private int mSize;
 	private Voice mVoice;
 	private XdmNode mText;
-	private TTSService mTTSproc;
+	private TTSEngine mTTSproc;
 }

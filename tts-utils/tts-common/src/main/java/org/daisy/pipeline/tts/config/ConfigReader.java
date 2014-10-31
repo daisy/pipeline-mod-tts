@@ -63,18 +63,19 @@ public class ConfigReader {
 					if (lang == null)
 						node.getAttributeValue(new QName(
 						        "http://www.w3.org/XML/1998/namespace", "lang"));
-					String vvendor = node.getAttributeValue(new QName(null, "vendor"));
+					String vengine = node.getAttributeValue(new QName(null, "engine"));
 					String vname = node.getAttributeValue(new QName(null, "name"));
 					String priority = node.getAttributeValue(new QName(null, "priority"));
-					Gender gender = Gender.of(node.getAttributeValue(new QName(null, "gender")));
+					Gender gender = Gender.of(node
+					        .getAttributeValue(new QName(null, "gender")));
 					if (priority == null)
 						priority = "5";
-					if (lang == null || vvendor == null || vname == null || gender == null) {
+					if (lang == null || vengine == null || vname == null || gender == null) {
 						Logger.warn("Config file invalid near " + node.toString());
 					} else {
 						try {
-							mVoices.add(new VoiceInfo(vvendor, vname, lang, gender,
-									Float.valueOf(priority)));
+							mVoices.add(new VoiceInfo(vengine, vname, lang, gender, Float
+							        .valueOf(priority)));
 						} catch (NumberFormatException e) {
 							Logger.warn("Error while converting config file's priority "
 							        + priority + " to float.");

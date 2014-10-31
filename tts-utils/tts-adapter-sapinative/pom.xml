@@ -142,6 +142,7 @@
 		</Bundle-NativeCode>
                 <Include-Resource>
                   OSGI-INF/tts-service.xml=src/main/resources/OSGI-INF/tts-service.xml,
+		  transform-ssml.xsl=src/main/resources/transform-ssml.xsl,
                   x64/sapinative.dll=target/generated-resources/lib/x64-Windows-msvc/jni/sapi-nar.dll,
 		  x86/sapinative.dll=target/generated-resources/lib/x86-Windows-msvc/jni/sapi-nar.dll
                 </Include-Resource>

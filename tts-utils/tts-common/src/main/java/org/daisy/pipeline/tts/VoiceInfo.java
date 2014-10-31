@@ -70,9 +70,9 @@ public class VoiceInfo {
 		return locale;
 	}
 
-	public VoiceInfo(String voiceVendor, String voiceName, String language, Gender gender,
+	public VoiceInfo(String voiceEngine, String voiceName, String language, Gender gender,
 	        float priority) {
-		this(new Voice(voiceVendor, voiceName),language,gender,priority);
+		this(new Voice(voiceEngine, voiceName),language,gender,priority);
 	}
 
 	public VoiceInfo(Voice v, String language, Gender gender, float priority) {
