@@ -43,7 +43,6 @@ import org.daisy.pipeline.tts.TTSTimeout;
 import org.daisy.pipeline.tts.TTSTimeout.ThreadFreeInterrupter;
 import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.VoiceManager;
-import org.daisy.pipeline.tts.config.ConfigReader;
 import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,12 +58,12 @@ import com.google.common.collect.Iterables;
  * manner that the list of audio files will mirror the document order. Every
  * sentence has the same single sample rate to prevent us from resampling the
  * audio data before sending them to encoders.
- *
+ * 
  * Once all the sentences have been assigned to TTS voices, they are sorted by
  * size and stored in a shared queue of ContiguousText (actually, only the
  * smallest sentences are sorted that way). SSMLtoAudio creates threads to
  * consume this queue.
- *
+ * 
  * The TextToPcmThreads send PCM data to EncodingThreads via a queue of
  * ContiguousPCM. These PCM packets are then processed from the longest (with
  * respect to the number of samples) to the shortest in order to make it likely
@@ -72,15 +71,15 @@ import com.google.common.collect.Iterables;
  * are joined, the pipeline pushes an EndOfQueue marker to every EncodingThreads
  * to notify that they must stop waiting for more PCM packets than the ones
  * already pushed.
- *
+ * 
  * The queue of PCM chunks, along with the queues of other TTS steps, share a
  * global max size so as to make sure that they won't grow too much if the
  * encoding is slower than the synthesizing (see AudioBuffersTracker).
- *
+ * 
  * If an EncodingThread fails to encode samples, it won't set the URI attribute
  * of the audio chunks. In that way, SSMLtoAudio is informed not to include the
  * corresponding text into the list of audio clips.
- *
+ * 
  */
 class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	private TTSEngine mLastTTS; //used if no TTS is found for the current sentence
@@ -103,7 +102,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 
 	SSMLtoAudio(File audioDir, TTSRegistry ttsregistry, IPipelineLogger logger,
 	        AudioBufferTracker audioBufferTracker, Processor proc, URIResolver uriResolver,
-	        ConfigReader configReader, TTSLog logs) {
+	        VoiceConfigExtension configExt, TTSLog logs) {
 		mTTSRegistry = ttsregistry;
 		mLogger = logger;
 		mCurrentSection = null;
@@ -137,7 +136,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		 */
 
 		TTSTimeout timeout = new TTSTimeout();
-		mProperties = configReader.getProperties();
+		mProperties = configExt.getProperties();
 		XslTransformCompiler xslCompiler = new XslTransformCompiler(proc
 		        .getUnderlyingConfiguration(), uriResolver);
 		List<TTSEngine> workingEngines = new ArrayList<TTSEngine>();
@@ -178,7 +177,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		mLogger.printInfo("Number of working TTS engine(s): " + workingEngines.size() + "/"
 		        + ttsregistry.getServices().size());
 
-		mVoiceManager = new VoiceManager(workingEngines, configReader.getVoiceDeclarations());
+		mVoiceManager = new VoiceManager(workingEngines, configExt.getVoiceDeclarations());
 	}
 
 	private TTSEngine createAndTestEngine(final TTSService service,

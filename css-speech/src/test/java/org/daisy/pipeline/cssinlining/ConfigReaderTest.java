@@ -1,11 +1,10 @@
-package org.daisy.pipeline.tts.config;
+package org.daisy.pipeline.cssinlining;
 
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 import javax.xml.transform.sax.SAXSource;
@@ -16,7 +15,7 @@ import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 
-import org.daisy.pipeline.tts.VoiceInfo;
+import org.daisy.pipeline.tts.config.ConfigReader;
 import org.junit.Test;
 import org.xml.sax.InputSource;
 
@@ -25,43 +24,21 @@ public class ConfigReaderTest {
 	static Processor Proc = new Processor(false);
 	static String docDirectory = "file:///doc/";
 
-	public static ConfigReader initConfigReader(String xmlstr) throws SaxonApiException {
+	public static CSSConfigExtension initConfigExtension(String xmlstr) throws SaxonApiException {
 		DocumentBuilder builder = Proc.newDocumentBuilder();
 		SAXSource source = new SAXSource(new InputSource(new StringReader("<config>" + xmlstr
 		        + "</config>")));
 		source.setSystemId(docDirectory + "uri");
 		XdmNode document = builder.build(source);
 
-		return new ConfigReader(document);
-	}
-
-	@Test
-	public void properties() throws SaxonApiException {
-		ConfigReader cr = initConfigReader("<property key=\"key1\" value=\"val1\"/><property key=\"key2\" value=\"val2\"/>");
-		Assert.assertEquals("val1", cr.getProperty("key1"));
-		Assert.assertEquals("val2", cr.getProperty("key2"));
-		Assert.assertEquals(2, cr.getProperties().size());
-	}
-
-	@Test
-	public void voices() throws SaxonApiException {
-		ConfigReader cr = initConfigReader("<voice engine=\"engine\" name=\"voice-name\" gender=\"male\" lang=\"en\" priority=\"42\"/>");
-
-		Collection<VoiceInfo> voices = cr.getVoiceDeclarations();
-
-		Assert.assertFalse(voices.isEmpty());
-
-		VoiceInfo v = voices.iterator().next();
-		Assert.assertEquals(new Locale("en"), v.language);
-		Assert.assertEquals("voice-name", v.voice.name);
-		Assert.assertEquals("engine", v.voice.engine);
-		Assert.assertEquals(VoiceInfo.Gender.MALE_ADULT, v.gender);
-		Assert.assertEquals(42, (int) v.priority);
+		CSSConfigExtension ext = new CSSConfigExtension();
+		new ConfigReader(document, ext);
+		return ext;
 	}
 
 	@Test
 	public void CSSabsoluteURI() throws SaxonApiException, URISyntaxException {
-		ConfigReader cr = initConfigReader("<css href=\"file:///uri1\"/><css href=\"file:///uri2\"/>");
+		CSSConfigExtension cr = initConfigExtension("<css href=\"file:///uri1\"/><css href=\"file:///uri2\"/>");
 		Set<URI> uris = new HashSet<URI>(cr.getCSSstylesheetURIs());
 
 		Assert.assertEquals(2, uris.size());
@@ -70,14 +47,8 @@ public class ConfigReaderTest {
 	}
 
 	@Test
-	public void configDocURI() throws SaxonApiException, URISyntaxException {
-		ConfigReader cr = initConfigReader("<css href=\"foo/bar/path.css\"/>");
-		Assert.assertTrue(cr.getConfigDocURI() != null);
-	}
-
-	@Test
 	public void CSSrelativePath() throws SaxonApiException, URISyntaxException {
-		ConfigReader cr = initConfigReader("<css href=\"foo/bar/path.css\"/>");
+		CSSConfigExtension cr = initConfigExtension("<css href=\"foo/bar/path.css\"/>");
 
 		Collection<URI> res = cr.getCSSstylesheetURIs();
 		Assert.assertFalse(res.isEmpty());
@@ -88,7 +59,7 @@ public class ConfigReaderTest {
 
 	@Test
 	public void embeddedCSS() throws SaxonApiException {
-		ConfigReader cr = initConfigReader("<css>css-content1</css><css>css-content2</css>");
+		CSSConfigExtension cr = initConfigExtension("<css>css-content1</css><css>css-content2</css>");
 
 		Set<String> contents = new HashSet<String>(cr.getEmbeddedCSS());
 
