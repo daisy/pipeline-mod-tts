@@ -78,7 +78,7 @@
       <p:with-option name="section-elements" select="'level,level1,level2,level3'"/>
       <p:with-option name="word-element" select="'w'"/>
       <p:with-option name="separate-skippable" select="$separate-skippable"/>
-      <p:with-option name="skippable-elements" select="'annoref,linenum,pagenum,noteref'"/>
+      <p:with-option name="skippable-elements" select="'annoref,linenum,pagenum,noteref,math'"/>
     </px:text-to-ssml>
 
     <px:message message="End SSML generation for DTBook"/><p:sink/>
