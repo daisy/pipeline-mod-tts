@@ -22,6 +22,30 @@ public class EncodingThread {
 	        final BlockingQueue<ContiguousPCM> inputPCM, final IPipelineLogger logger,
 	        final AudioBufferTracker audioBufferTracker, Map<String, String> TTSproperties,
 	        final TTSLog ttslog) {
+
+		//Eventually, we should select the encoder using the audio format as criterion, but for now
+		//we always employ the same encoder for every chunk of PCM
+		AudioEncoder encoder = encoderRegistry.getEncoder();
+		AudioEncoder.EncodingOptions encodingOptions = null;
+		if (encoder == null) {
+			String msg = "No audio encoder found";
+			logger.printInfo(msg);
+			ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
+		} else {
+			encodingOptions = encoder.parseEncodingOptions(TTSproperties);
+			try {
+				encoder.test(encodingOptions);
+			} catch (Exception e) {
+				String msg = "audio encoder does not work: " + e.getMessage();
+				logger.printInfo(msg);
+				ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
+				encoder = null;
+			}
+		}
+
+		final AudioEncoder.EncodingOptions options = encodingOptions;
+		final AudioEncoder fencoder = encoder;
+
 		mThread = new Thread() {
 			@Override
 			public void run() {
@@ -38,27 +62,18 @@ public class EncodingThread {
 					if (job.isEndOfQueue()) {
 						//nothing to release
 						break;
-					} else {
-						int jobSize = job.sizeInBytes();
-						AudioEncoder encoder = encoderRegistry.getEncoder();
-						if (encoder == null) {
-							job = null;
-							audioBufferTracker.releaseEncodersMemory(jobSize);
-							String msg = "No audio encoder found. Encoding thread is stopping...";
-							logger.printInfo(msg);
-							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
-							break;
-						}
-						//TODO: pass the properties to the encoder
-						Optional<String> destURI = encoder.encode(job.getBuffers(), job
+					}
+					int jobSize = job.sizeInBytes();
+					if (fencoder != null) {
+						Optional<String> destURI = fencoder.encode(job.getBuffers(), job
 						        .getAudioFormat(), job.getDestinationDirectory(), job
-						        .getDestinationFilePrefix());
+						        .getDestinationFilePrefix(), options);
 						if (destURI.isPresent()) {
 							job.getURIholder().append(destURI.get());
 						}
-						job = null;
-						audioBufferTracker.releaseEncodersMemory(jobSize);
 					}
+					job = null;
+					audioBufferTracker.releaseEncodersMemory(jobSize);
 				}
 			}
 		};
