@@ -42,6 +42,7 @@ import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.TTSTimeout;
 import org.daisy.pipeline.tts.TTSTimeout.ThreadFreeInterrupter;
 import org.daisy.pipeline.tts.Voice;
+import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceManager;
 import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 import org.slf4j.Logger;
@@ -215,19 +216,23 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 			return null;
 		}
 
-		//get a voice
+		//get a voice supporting SSML marks (so far as they are supported by the engine)
 		Voice firstVoice = null;
 		try {
 			timeout.enableForCurrentThread(2);
-			Collection<Voice> voices = engine.getAvailableVoices();
-			if (voices.size() == 0) {
+			for (Voice v : engine.getAvailableVoices()) {
+				if (engine.endingMark() == null
+				        || v.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED) {
+					firstVoice = v;
+				}
+			}
+			if (firstVoice == null) {
 				String err = TTSServiceUtil.displayName(service)
 				        + " cannot be tested because no voice seems available.";
 				mTTSlog.addGeneralError(ErrorCode.WARNING, err);
 				ServerLogger.error(err);
 				return null;
 			}
-			firstVoice = voices.iterator().next();
 		} catch (Exception e) {
 			String err = TTSServiceUtil.displayName(service)
 			        + " failed to return voices, cause: " + e.getMessage() + ": "

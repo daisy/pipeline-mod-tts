@@ -8,6 +8,7 @@ import java.util.Map;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 
+import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceInfo;
 import org.daisy.pipeline.tts.VoiceInfo.Gender;
 import org.daisy.pipeline.tts.config.ConfigReader;
@@ -30,13 +31,21 @@ public class VoiceConfigExtension implements ConfigReader.Extension {
 			String vname = node.getAttributeValue(new QName(null, "name"));
 			String priority = node.getAttributeValue(new QName(null, "priority"));
 			Gender gender = Gender.of(node.getAttributeValue(new QName(null, "gender")));
+			String marks = node.getAttributeValue(new QName(null, "marks"));
+			MarkSupport markSupport = MarkSupport.DEFAULT;
+			if ("true".equalsIgnoreCase(marks)) {
+				markSupport = markSupport.MARK_SUPPORTED;
+			} else if ("false".equalsIgnoreCase(marks)) {
+				markSupport = MarkSupport.MARK_NOT_SUPPORTED;
+			}
+
 			if (priority == null)
 				priority = "5";
 			if (lang == null || vengine == null || vname == null || gender == null) {
 				Logger.warn("Config file invalid near " + node.toString());
 			} else {
 				try {
-					mVoices.add(new VoiceInfo(vengine, vname, lang, gender, Float
+					mVoices.add(new VoiceInfo(vengine, vname, markSupport, lang, gender, Float
 					        .valueOf(priority)));
 				} catch (NumberFormatException e) {
 					Logger.warn("Error while converting config file's priority " + priority

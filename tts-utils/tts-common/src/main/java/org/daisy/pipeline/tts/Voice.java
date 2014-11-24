@@ -1,14 +1,26 @@
 package org.daisy.pipeline.tts;
 
 public class Voice {
+	public enum MarkSupport {
+		DEFAULT,
+		MARK_SUPPORTED,
+		MARK_NOT_SUPPORTED
+	}
+
 	public Voice(String engine, String name) {
-		//we keep the strings in their full case form because some engines are case sensitive (e.g. SAPI)
+		this(engine, name, MarkSupport.DEFAULT);
+	}
+
+	public Voice(String engine, String name, MarkSupport markSupport) {
+		//we keep the strings in their full case form because some engines might be case sensitive
 		this.engine = engine;
 		if (engine == null)
 			this.engine = "";
 		this.name = name;
 		if (name == null)
 			this.name = "";
+
+		mMarkSupport = markSupport;
 
 		mEngine_lo = this.engine.toLowerCase();
 		mName_lo = this.name.toLowerCase();
@@ -30,10 +42,15 @@ public class Voice {
 		        + (!name.isEmpty() ? name : "%unkown%") + "}";
 	}
 
+	public MarkSupport getMarkSupport() {
+		return mMarkSupport;
+	}
+
 	//the upper-case versions need to be kept because some TTS Processors like SAPI
 	//are case-sensitive. Lower-case versions are only used for comparison.
 	public String engine;
 	public String name;
 	private String mEngine_lo;
 	private String mName_lo;
+	private MarkSupport mMarkSupport;
 }

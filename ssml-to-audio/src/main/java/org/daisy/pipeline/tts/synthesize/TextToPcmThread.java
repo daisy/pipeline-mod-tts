@@ -36,6 +36,7 @@ import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.TTSTimeout;
 import org.daisy.pipeline.tts.TTSTimeout.ThreadFreeInterrupter;
 import org.daisy.pipeline.tts.Voice;
+import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceManager;
 import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 import org.slf4j.Logger;
@@ -223,7 +224,8 @@ public class TextToPcmThread implements FormatSpecifications {
 	        Voice voice, TTSResource threadResources, List<Mark> marks)
 	        throws SaxonApiException, SynthesisException, InterruptedException,
 	        MemoryException {
-		if (tts.endingMark() != null) //can handle marks
+		if (tts.endingMark() != null
+		        && voice.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED) //can handle marks
 			return synthesizeSSML(tts, ssml, sentenceId, voice, threadResources, marks);
 		else {
 			Collection<Chunk> chunks = mSSMLSplitter.split(ssml);
@@ -361,6 +363,7 @@ public class TextToPcmThread implements FormatSpecifications {
 
 		//check validity of the result by using the ending mark
 		if (tts.endingMark() != null
+		        && v.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED
 		        && !(marks.size() > 0 && tts.endingMark().equals(
 		                marks.get(marks.size() - 1).name))) {
 			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
@@ -438,7 +441,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			// Should never happen since interruptions only occur during calls to TTS processors.
 		}
 
-		if (tts.endingMark() != null) {
+		if (marks.size() > 0) {
 			marks = marks.subList(0, marks.size() - 1);
 		}
 

@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.daisy.pipeline.tts.Voice.MarkSupport;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
@@ -17,14 +19,15 @@ public class VoiceInfo {
 	        .compile("(\\p{Alpha}{2})(?:[-_](\\p{Alpha}{2}))?(?:[-_](\\p{Alnum}{1,8}))*");
 
 	public enum Gender {
-		MALE_ADULT("male", "man", "male-adult"), 
-		MALE_CHILD("boy", "male-young", "male-child"), 
+		MALE_ADULT("male", "man", "male-adult"),
+		MALE_CHILD("boy", "male-young", "male-child"),
 		MALE_ELDERY("man-old", "male-old", "male-elder", "man-elder"),
 		FEMALE_CHILD("girl", "female-young", "female-child"),
 		FEMALE_ADULT("woman", "female", "female-adult"),
 		FEMALE_ELDERY("woman-old", "female-old", "woman-elder", "female-elder");
-		
+
 		private final List<String> variants;
+
 		private Gender(String... variants) {
 			this.variants = Lists.newArrayList(variants);
 		}
@@ -72,17 +75,22 @@ public class VoiceInfo {
 
 	public VoiceInfo(String voiceEngine, String voiceName, String language, Gender gender,
 	        float priority) {
-		this(new Voice(voiceEngine, voiceName),language,gender,priority);
+		this(voiceEngine, voiceName, MarkSupport.DEFAULT, language, gender, priority);
+	}
+
+	public VoiceInfo(String voiceEngine, String voiceName, MarkSupport markSupport,
+	        String language, Gender gender, float priority) {
+		this(new Voice(voiceEngine, voiceName, markSupport), language, gender, priority);
 	}
 
 	public VoiceInfo(Voice v, String language, Gender gender, float priority) {
-		this(v,tagToLocale(language),gender,priority);
+		this(v, tagToLocale(language), gender, priority);
 	}
 
 	public VoiceInfo(Voice v, Locale language, Gender gender) {
-		this(v,language,gender,-1);
+		this(v, language, gender, -1);
 	}
-	
+
 	private VoiceInfo(Voice v, Locale locale, Gender gender, float priority) {
 		Preconditions.checkNotNull(v);
 		Preconditions.checkNotNull(locale);

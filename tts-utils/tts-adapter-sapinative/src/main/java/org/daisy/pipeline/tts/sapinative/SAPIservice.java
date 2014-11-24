@@ -20,13 +20,6 @@ public class SAPIservice extends AbstractTTSService {
 		int bytesPerSample = convertToInt(params, "sapi.bytespersample", 2);
 		int priority = convertToInt(params, "sapi.priority", 7);
 
-		boolean handleMarks = true;
-		String markProp = "sapi.handle.marks";
-		String str = params.get(markProp);
-		if ("false".equalsIgnoreCase(str)) {
-			handleMarks = false;
-		}
-
 		AudioFormat audioFormat = new AudioFormat(sampleRate, 8 * bytesPerSample, 1, true,
 		        false);
 
@@ -52,7 +45,7 @@ public class SAPIservice extends AbstractTTSService {
 		}
 
 		//allocate the engine
-		return new SAPIengine(this, audioFormat, priority, handleMarks);
+		return new SAPIengine(this, audioFormat, priority);
 	}
 
 	@Override
@@ -62,7 +55,6 @@ public class SAPIservice extends AbstractTTSService {
 
 	@Override
 	public String getVersion() {
-
 		return "native";
 	}
 
