@@ -1,8 +1,6 @@
 package org.daisy.pipeline.tts.synthesize;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -41,17 +39,58 @@ public interface TTSLog {
 		private String message;
 	}
 
-	//TODO: make this class an interface or make its content accessible only through TTSLog
-	public static class Entry {
-		List<Error> errors = new ArrayList<Error>();
-		public XdmNode ssml; //SSML before being converted to 'ttsinput'
-		public String ttsinput = ""; //the actual string provided as input to the TTS processor
-		public Voice selectedVoice; //the voice selected by the top-level VoiceManager
-		//the actual voice used by the TTS processor (the same as selectedVoice in the general case, but can be different if something went wrong)
-		public Voice actualVoice;
-		public String soundfile; //wave, mp3 or ogg file
-		public double beginInFile; //in seconds
-		public double endInFile; //in seconds
+	interface Entry {
+		void addError(Error err);
+
+		Collection<Error> getReadOnlyErrors();
+
+		/**
+		 * @param ssml is the SSML before being converted to 'ttsinput'
+		 */
+		void setSSML(XdmNode ssml);
+
+		XdmNode getSSML();
+
+		/**
+		 * @param v is the voice selected by the top-level VoiceManager
+		 */
+		void setSelectedVoice(Voice v);
+
+		Voice getSelectedVoice();
+
+		/**
+		 * @param v is the actual voice used by the TTS processor (the same as
+		 *            selectedVoice in the general case, but can be different if
+		 *            something went wrong)
+		 */
+		void setActualVoice(Voice v);
+
+		Voice getActualVoice();
+
+		/**
+		 * @param input is the actual string provided as input to the TTS
+		 *            processor
+		 */
+		void setTTSinput(String input);
+
+		String getTTSinput();
+
+		/**
+		 * @param soundfile is a path of a wave, mp3 or ogg file
+		 */
+		void setSoundfile(String soundfile);
+
+		String getSoundFile();
+
+		/**
+		 * @param begin offset in seconds
+		 * @param end offset in seconds
+		 */
+		void setPositionInFile(double begin, double end);
+
+		double getBeginInFile();
+
+		double getEndInFile();
 	}
 
 	/**

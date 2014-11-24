@@ -198,12 +198,12 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 				tw.addEndElement();
 				++num;
 				TTSLog.Entry entry = log.getOrCreateEntry(sf.xmlid);
-				entry.soundfile = soundFileURI;
-				entry.beginInFile = sf.clipBegin;
-				entry.endInFile = sf.clipEnd;
+				entry.setSoundfile(soundFileURI);
+				entry.setPositionInFile(sf.clipBegin, sf.clipEnd);
 			} else {
-				log.getOrCreateEntry(sf.xmlid).errors.add(new TTSLog.Error(
-				        ErrorCode.AUDIO_MISSING, "not synthesized or not encoded"));
+				log.getOrCreateEntry(sf.xmlid).addError(
+				        new TTSLog.Error(ErrorCode.AUDIO_MISSING,
+				                "not synthesized or not encoded"));
 			}
 		}
 		tw.addEndElement();
@@ -232,29 +232,30 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 				xmlLog.addStartElement(LogTextTag);
 
 				xmlLog.addAttribute(Log_attr_id, entry.getKey());
-				if (le.soundfile != null) {
-					String basename = new File(le.soundfile).getName();
+				if (le.getSoundFile() != null) {
+					String basename = new File(le.getSoundFile()).getName();
 					xmlLog.addAttribute(Log_attr_file, basename);
-					xmlLog.addAttribute(Log_attr_begin, String.valueOf(le.beginInFile));
-					xmlLog.addAttribute(Log_attr_end, String.valueOf(le.endInFile));
+					xmlLog.addAttribute(Log_attr_begin, String.valueOf(le.getBeginInFile()));
+					xmlLog.addAttribute(Log_attr_end, String.valueOf(le.getEndInFile()));
 				}
-				if (le.selectedVoice != null)
-					xmlLog.addAttribute(Log_attr_selected_voice, le.selectedVoice.toString());
-				if (le.actualVoice != null)
-					xmlLog.addAttribute(Log_attr_actual_voice, le.actualVoice.toString());
+				if (le.getSelectedVoice() != null)
+					xmlLog.addAttribute(Log_attr_selected_voice, le.getSelectedVoice()
+					        .toString());
+				if (le.getActualVoice() != null)
+					xmlLog.addAttribute(Log_attr_actual_voice, le.getActualVoice().toString());
 
-				for (TTSLog.Error err : le.errors)
+				for (TTSLog.Error err : le.getReadOnlyErrors())
 					writeXMLerror(xmlLog, err);
 
-				if (le.ssml != null) {
+				if (le.getSSML() != null) {
 					xmlLog.addStartElement(LogSsmlTag);
-					xmlLog.addSubtree(le.ssml);
+					xmlLog.addSubtree(le.getSSML());
 					xmlLog.addEndElement();
 				}
 
-				if (le.ttsinput != null && !le.ttsinput.isEmpty()) {
+				if (le.getTTSinput() != null && !le.getTTSinput().isEmpty()) {
 					xmlLog.addStartElement(LogInpTag);
-					xmlLog.addText(le.ttsinput);
+					xmlLog.addText(le.getTTSinput());
 					xmlLog.addEndElement();
 				}
 

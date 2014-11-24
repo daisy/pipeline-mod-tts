@@ -4,9 +4,85 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
+import net.sf.saxon.s9api.XdmNode;
+
+import org.daisy.pipeline.tts.Voice;
+
 public class TTSLogEmpty implements TTSLog {
 
-	private Entry mUselessEntry = new Entry();
+	private Entry mUselessEntry = new Entry() {
+
+		@Override
+		public void addError(Error err) {
+		}
+
+		@Override
+		public Collection<Error> getReadOnlyErrors() {
+			return Collections.EMPTY_LIST;
+		}
+
+		@Override
+		public void setSSML(XdmNode ssml) {
+		}
+
+		@Override
+		public XdmNode getSSML() {
+
+			return null;
+		}
+
+		@Override
+		public void setSelectedVoice(Voice v) {
+		}
+
+		@Override
+		public Voice getSelectedVoice() {
+			return null;
+		}
+
+		@Override
+		public void setActualVoice(Voice v) {
+
+		}
+
+		@Override
+		public Voice getActualVoice() {
+			return null;
+		}
+
+		@Override
+		public void setTTSinput(String input) {
+		}
+
+		@Override
+		public String getTTSinput() {
+			return null;
+		}
+
+		@Override
+		public void setSoundfile(String soundfile) {
+		}
+
+		@Override
+		public String getSoundFile() {
+			return null;
+		}
+
+		@Override
+		public void setPositionInFile(double begin, double end) {
+		}
+
+		@Override
+		public double getBeginInFile() {
+			return 0;
+		}
+
+		@Override
+		public double getEndInFile() {
+			return 0;
+		}
+
+	};
 
 	@Override
 	public Entry getOrCreateEntry(String id) {
@@ -15,7 +91,7 @@ public class TTSLogEmpty implements TTSLog {
 
 	@Override
 	public Entry getWritableEntry(String id) {
-		return new Entry();
+		return mUselessEntry;
 	}
 
 	@Override

@@ -349,7 +349,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		String lang = ssml.getAttributeValue(Sentence_attr_lang);
 
 		TTSLog.Entry logEntry = mTTSlog.getOrCreateEntry(id);
-		logEntry.ssml = ssml;
+		logEntry.setSSML(ssml);
 
 		if (age != null) {
 			try {
@@ -367,9 +367,9 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		boolean[] exactMatch = new boolean[1];
 		Voice voice = mVoiceManager.findAvailableVoice(voiceEngine, voiceName, lang, gender,
 		        exactMatch);
-		logEntry.selectedVoice = voice;
+		logEntry.setSelectedVoice(voice);
 		if (voice == null) {
-			logEntry.errors.add(new TTSLog.Error(TTSLog.ErrorCode.AUDIO_MISSING,
+			logEntry.addError(new TTSLog.Error(TTSLog.ErrorCode.AUDIO_MISSING,
 			        "could not find any installed voice matching with "
 			                + new Voice(voiceEngine, voiceName)
 			                + " or providing the language '" + lang + "'"));
@@ -383,7 +383,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 			 * Should not happen since findAvailableVoice() returns only a
 			 * non-null voice if a TTSService can provide it
 			 */
-			logEntry.errors.add(new TTSLog.Error(TTSLog.ErrorCode.AUDIO_MISSING,
+			logEntry.addError(new TTSLog.Error(TTSLog.ErrorCode.AUDIO_MISSING,
 			        "could not find any TTS engine for the voice "
 			                + new Voice(voiceEngine, voiceName)));
 			endSection();
@@ -391,7 +391,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		}
 
 		if (!exactMatch[0]) {
-			logEntry.errors.add(new TTSLog.Error(TTSLog.ErrorCode.UNEXPECTED_VOICE,
+			logEntry.addError(new TTSLog.Error(TTSLog.ErrorCode.UNEXPECTED_VOICE,
 			        "no voice matches exactly with the requested characteristics"));
 		}
 

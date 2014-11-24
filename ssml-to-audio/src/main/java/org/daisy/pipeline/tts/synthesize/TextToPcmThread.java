@@ -114,8 +114,8 @@ public class TextToPcmThread implements FormatSpecifications {
 						} catch (Throwable t) {
 							StringWriter sw = new StringWriter();
 							t.printStackTrace(new PrintWriter(sw));
-							mTTSLog.getWritableEntry(sentence.getID()).errors
-							        .add(new TTSLog.Error(TTSLog.ErrorCode.CRITICAL_ERROR,
+							mTTSLog.getWritableEntry(sentence.getID()).addError(
+							        new TTSLog.Error(TTSLog.ErrorCode.CRITICAL_ERROR,
 							                "the current thread is stopping because of error: "
 							                        + sw.toString()));
 							breakloop = true;
@@ -210,8 +210,8 @@ public class TextToPcmThread implements FormatSpecifications {
 	        MemoryException {
 		String transformed = transformSSML(ssml, tts, voice);
 		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
-		logEntry.ttsinput = transformed;
-		logEntry.actualVoice = voice;
+		logEntry.setTTSinput(transformed);
+		logEntry.setActualVoice(voice);
 		return tts.synthesize(transformed, ssml, voice, threadResources, marks,
 		        mAudioBufferTracker, false);
 	}
@@ -271,23 +271,26 @@ public class TextToPcmThread implements FormatSpecifications {
 				timeout.enableForCurrentThread(3); //3 seconds
 				resource = mTTSRegistry.allocateResourceFor(tts);
 			} catch (SynthesisException e) {
-				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-				        ErrorCode.WARNING, "Error while allocating resources for "
-				                + TTSServiceUtil.displayName(tts.getProvider()) + ": " + e));
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(ErrorCode.WARNING,
+				                "Error while allocating resources for "
+				                        + TTSServiceUtil.displayName(tts.getProvider()) + ": "
+				                        + e));
 
 				return null;
 			} catch (InterruptedException e) {
-				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-				        ErrorCode.WARNING, "Timeout while trying to allocate resources for "
-				                + TTSServiceUtil.displayName(tts.getProvider())));
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(ErrorCode.WARNING,
+				                "Timeout while trying to allocate resources for "
+				                        + TTSServiceUtil.displayName(tts.getProvider())));
 				return null;
 			} finally {
 				timeout.disable();
 			}
 			if (resource == null) {
 				//TTS not working anymore?
-				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-				        ErrorCode.WARNING, "Could not allocate resource for "
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(ErrorCode.WARNING, "Could not allocate resource for "
 				                + TTSServiceUtil.displayName(tts.getProvider())
 				                + " (it has probably been stopped)."));
 				return null; //it will try with another TTS
@@ -329,16 +332,16 @@ public class TextToPcmThread implements FormatSpecifications {
 				pcm = synthesize(tts, sentence.getText(), sentence.getID(), v, resource, marks);
 			}
 		} catch (InterruptedException e) {
-			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-			        ErrorCode.WARNING, "timeout (" + timeoutSecs
+			mTTSLog.getWritableEntry(sentence.getID()).addError(
+			        new TTSLog.Error(ErrorCode.WARNING, "timeout (" + timeoutSecs
 			                + " seconds) fired while speaking with "
 			                + TTSServiceUtil.displayName(tts.getProvider())));
 			return null;
 		} catch (SynthesisException e) {
 			StringWriter sw = new StringWriter();
 			e.printStackTrace(new PrintWriter(sw));
-			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-			        ErrorCode.WARNING, "error while speaking with "
+			mTTSLog.getWritableEntry(sentence.getID()).addError(
+			        new TTSLog.Error(ErrorCode.WARNING, "error while speaking with "
 			                + TTSServiceUtil.displayName(tts.getProvider()) + " : " + e + ":"
 			                + sw.toString()));
 
@@ -346,9 +349,11 @@ public class TextToPcmThread implements FormatSpecifications {
 		} catch (MemoryException e) {
 			throw e;
 		} catch (SaxonApiException e) {
-			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-			        ErrorCode.WARNING, "error while transforming SSML with the XSLT of "
-			                + TTSServiceUtil.displayName(tts.getProvider()) + " : " + e));
+			mTTSLog.getWritableEntry(sentence.getID()).addError(
+			        new TTSLog.Error(ErrorCode.WARNING,
+			                "error while transforming SSML with the XSLT of "
+			                        + TTSServiceUtil.displayName(tts.getProvider()) + " : "
+			                        + e));
 			return null;
 		} finally {
 			timeout.disable();
@@ -360,8 +365,8 @@ public class TextToPcmThread implements FormatSpecifications {
 		                marks.get(marks.size() - 1).name))) {
 			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
 
-			mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-			        ErrorCode.WARNING, "missing ending mark with "
+			mTTSLog.getWritableEntry(sentence.getID()).addError(
+			        new TTSLog.Error(ErrorCode.WARNING, "missing ending mark with "
 			                + TTSServiceUtil.displayName(tts.getProvider())
 			                + ". Number of marks received: " + marks.size()));
 
@@ -391,10 +396,10 @@ public class TextToPcmThread implements FormatSpecifications {
 			//Find another TTS engine for this sentence
 			Voice newVoice = mVoiceManager.findSecondaryVoice(sentence.getVoice());
 			if (newVoice == null) {
-				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-				        TTSLog.ErrorCode.AUDIO_MISSING,
-				        "  something went wrong but no fallback voice can be found for "
-				                + originalVoice));
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(TTSLog.ErrorCode.AUDIO_MISSING,
+				                "  something went wrong but no fallback voice can be found for "
+				                        + originalVoice));
 				return;
 			}
 			tts = mVoiceManager.getTTS(newVoice); //cannot return null in this case
@@ -409,10 +414,11 @@ public class TextToPcmThread implements FormatSpecifications {
 				return;
 			}
 			if (pcm == null) {
-				mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-				        TTSLog.ErrorCode.AUDIO_MISSING, " something went wrong with "
-				                + originalVoice + " and fallback voice " + newVoice
-				                + " didn't work either"));
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(TTSLog.ErrorCode.AUDIO_MISSING,
+				                " something went wrong with " + originalVoice
+				                        + " and fallback voice " + newVoice
+				                        + " didn't work either"));
 				return;
 			}
 
@@ -494,8 +500,8 @@ public class TextToPcmThread implements FormatSpecifications {
 	private void printMemError(Sentence sentence, MemoryException e) {
 		String msg = "out of memory when processing sentence";
 		ServerLogger.error(msg + " with @id=" + sentence.getID());
-		mTTSLog.getWritableEntry(sentence.getID()).errors.add(new TTSLog.Error(
-		        ErrorCode.AUDIO_MISSING, msg));
+		mTTSLog.getWritableEntry(sentence.getID()).addError(
+		        new TTSLog.Error(ErrorCode.AUDIO_MISSING, msg));
 	}
 
 	private void addBuffers(Iterable<AudioBuffer> toadd) throws InterruptedException {
