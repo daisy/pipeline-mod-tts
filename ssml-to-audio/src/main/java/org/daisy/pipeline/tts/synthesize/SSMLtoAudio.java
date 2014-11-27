@@ -82,7 +82,7 @@ import com.google.common.collect.Iterables;
  * corresponding text into the list of audio clips.
  * 
  */
-class SSMLtoAudio implements IProgressListener, FormatSpecifications {
+public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	private TTSEngine mLastTTS; //used if no TTS is found for the current sentence
 	private TTSRegistry mTTSRegistry;
 	private IPipelineLogger mLogger;
@@ -101,7 +101,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	private Map<String, String> mProperties;
 	private TTSLog mTTSlog;
 
-	SSMLtoAudio(File audioDir, TTSRegistry ttsregistry, IPipelineLogger logger,
+	public SSMLtoAudio(File audioDir, TTSRegistry ttsregistry, IPipelineLogger logger,
 	        AudioBufferTracker audioBufferTracker, Processor proc, URIResolver uriResolver,
 	        VoiceConfigExtension configExt, TTSLog logs) {
 		mTTSRegistry = ttsregistry;
@@ -345,7 +345,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	/**
 	 * The SSML is assumed to be pushed in document order.
 	 **/
-	void dispatchSSML(XdmNode ssml) throws SynthesisException {
+	public void dispatchSSML(XdmNode ssml) throws SynthesisException {
 		String voiceEngine = ssml.getAttributeValue(Sentence_attr_select1);
 		String voiceName = ssml.getAttributeValue(Sentence_attr_select2);
 		String gender = ssml.getAttributeValue(Sentence_attr_gender);
@@ -424,7 +424,6 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		if (mCurrentSection == null) {
 			//happen the first time and whenever endSection() is called
 			mCurrentSection = new ContiguousText(mDocumentPosition++, mAudioDir);
-
 			List<ContiguousText> listOfSections = mOrganizedText.get(poolkey);
 			if (listOfSections == null) {
 				listOfSections = new ArrayList<ContiguousText>();
@@ -432,16 +431,15 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 			}
 
 			listOfSections.add(mCurrentSection);
-
 		}
 		mCurrentSection.sentences.add(new Sentence(newSynth, voice, ssml));
 	}
 
-	void endSection() {
+	public void endSection() {
 		mCurrentSection = null;
 	}
 
-	Iterable<SoundFileLink> blockingRun(AudioServices audioServices)
+	public Iterable<SoundFileLink> blockingRun(AudioServices audioServices)
 	        throws SynthesisException, InterruptedException {
 
 		//SSML mark splitter shared by the threads:
@@ -558,7 +556,7 @@ class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 				mTotalTextSize += section.getStringSize();
 			}
 			//split up the sections that are too big
-			int maxSize = (int) (mTotalTextSize / 15);
+			int maxSize = (int) (mTotalTextSize / 15); //should it depend on the total size or be an absolute max?
 			List<ContiguousText> newSections = new ArrayList<ContiguousText>();
 			List<ContiguousText> toRemove = new ArrayList<ContiguousText>();
 			for (ContiguousText section : sections) {

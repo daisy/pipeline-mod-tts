@@ -128,12 +128,24 @@ public class TextToPcmThread implements FormatSpecifications {
 					if (breakloop)
 						break;
 				}
-				timeout.close();
 
 				//release the TTS resources
 				for (Map.Entry<TTSEngine, TTSResource> e : mResources.entrySet()) {
-					releaseResource(e.getKey(), e.getValue());
+					try {
+						timeout.enableForCurrentThread(2);
+						releaseResource(e.getKey(), e.getValue());
+					} catch (Exception ex) {
+						String msg = "Error while releasing resource of "
+						        + TTSServiceUtil.displayName(e.getKey().getProvider()) + "; "
+						        + ex.getMessage();
+						ServerLogger.warn(msg);
+						mTTSLog.addGeneralError(ErrorCode.WARNING, msg);
+					} finally {
+						timeout.disable();
+					}
 				}
+
+				timeout.close();
 			}
 		};
 		mThread.start();

@@ -1,11 +1,14 @@
 package org.daisy.pipeline.tts.synthesize;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 
 import org.daisy.pipeline.audio.AudioEncoder;
 import org.daisy.pipeline.audio.AudioServices;
 import org.daisy.pipeline.tts.AudioBufferTracker;
+import org.daisy.pipeline.tts.TTSTimeout;
 import org.daisy.pipeline.tts.synthesize.TTSLog.ErrorCode;
 
 import com.google.common.base.Optional;
@@ -36,7 +39,7 @@ public class EncodingThread {
 			try {
 				encoder.test(encodingOptions);
 			} catch (Exception e) {
-				String msg = "audio encoder does not work: " + e.getMessage();
+				String msg = "audio encoder does not work: " + getStack(e);
 				logger.printInfo(msg);
 				ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
 				encoder = null;
@@ -45,6 +48,8 @@ public class EncodingThread {
 
 		final AudioEncoder.EncodingOptions options = encodingOptions;
 		final AudioEncoder fencoder = encoder;
+
+		final TTSTimeout timeout = new TTSTimeout();
 
 		mThread = new Thread() {
 			@Override
@@ -57,7 +62,7 @@ public class EncodingThread {
 						String msg = "encoding thread has been interrupted";
 						logger.printInfo(msg);
 						ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
-						break;
+						break; //warning: encoding bytes are not freed
 					}
 					if (job.isEndOfQueue()) {
 						//nothing to release
@@ -65,16 +70,27 @@ public class EncodingThread {
 					}
 					int jobSize = job.sizeInBytes();
 					if (fencoder != null) {
-						Optional<String> destURI = fencoder.encode(job.getBuffers(), job
-						        .getAudioFormat(), job.getDestinationDirectory(), job
-						        .getDestinationFilePrefix(), options);
-						if (destURI.isPresent()) {
-							job.getURIholder().append(destURI.get());
+						try {
+							timeout.enableForCurrentThread(3);
+							Optional<String> destURI = fencoder.encode(job.getBuffers(), job
+							        .getAudioFormat(), job.getDestinationDirectory(), job
+							        .getDestinationFilePrefix(), options);
+							if (destURI.isPresent()) {
+								job.getURIholder().append(destURI.get());
+							}
+						} catch (Throwable t) {
+							String msg = "error while encoding audio: " + getStack(t);
+							logger.printInfo(msg);
+							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
+						} finally {
+							timeout.disable();
 						}
 					}
 					job = null;
 					audioBufferTracker.releaseEncodersMemory(jobSize);
 				}
+
+				timeout.close();
 			}
 		};
 		mThread.start();
@@ -87,4 +103,14 @@ public class EncodingThread {
 			//should not happen
 		}
 	}
+
+	//TODO: move this method in some kind of utils/helpers
+	private static String getStack(Throwable t) {
+		StringWriter writer = new StringWriter();
+		PrintWriter printWriter = new PrintWriter(writer);
+		t.printStackTrace(printWriter);
+		printWriter.flush();
+		return writer.toString();
+	}
+
 }

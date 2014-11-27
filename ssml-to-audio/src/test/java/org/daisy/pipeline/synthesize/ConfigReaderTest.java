@@ -12,6 +12,7 @@ import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 
+import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceInfo;
 import org.daisy.pipeline.tts.config.ConfigReader;
 import org.daisy.pipeline.tts.synthesize.VoiceConfigExtension;
@@ -50,5 +51,6 @@ public class ConfigReaderTest {
 		Assert.assertEquals("engine", v.voice.engine);
 		Assert.assertEquals(VoiceInfo.Gender.MALE_ADULT, v.gender);
 		Assert.assertEquals(42, (int) v.priority);
+		Assert.assertEquals(MarkSupport.DEFAULT, v.voice.getMarkSupport());
 	}
 }
