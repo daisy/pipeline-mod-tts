@@ -13,10 +13,12 @@
 
   <xsl:template match="*" mode="flatten-css-properties">
     <xsl:param name="style-ns" select="''"/>
+    <xsl:param name="lang"/>
     <xsl:variable name="node" select="."/>
+    <xsl:variable name="ancestor" select="ancestor-or-self::*[@xml:lang][1]"/>
 
     <xsl:attribute namespace="http://www.w3.org/XML/1998/namespace" name="lang">
-      <xsl:value-of select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
+      <xsl:value-of select="if ($ancestor) then $ancestor/@xml:lang else $lang"/>
     </xsl:attribute>
 
     <xsl:for-each select="tokenize($properties, ',')">

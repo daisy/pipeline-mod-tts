@@ -20,7 +20,8 @@
 
   <xsl:import href="flatten-css.xsl"/>
 
-  <xsl:variable name="style-ns" select="'http://www.daisy.org/ns/pipeline/tts'"/>
+  <xsl:param name="lang"/>
+  <xsl:param name="style-ns"/>
 
   <!-- ========= bind every cue and pause to its most relevant sentence ========= -->
   <!-- ========= (document order is kept on purpose)                    ========= -->
@@ -126,6 +127,7 @@
 	      <xsl:copy-of select="$sentence/@*"/>
 	      <xsl:apply-templates select="$sentence" mode="flatten-css-properties">
 		<xsl:with-param name="style-ns" select="$style-ns"/>
+		<xsl:with-param name="lang" select="$lang"/>
 	      </xsl:apply-templates>
 	      <xsl:for-each select="key('bindings', $sentence/@id, $bindings)">
 		<xsl:choose>

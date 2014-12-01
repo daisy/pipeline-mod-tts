@@ -10,6 +10,7 @@
 
   <xsl:import href="flatten-css.xsl"/>
 
+  <xsl:param name="lang"/>
   <xsl:param name="skippable-elements"/>
   <xsl:param name="style-ns"/>
   <xsl:param name="pronounce-references" select="'true'"/>
@@ -41,6 +42,7 @@
 	<d:sk id="{@id}">
 	  <xsl:apply-templates select="current()" mode="flatten-css-properties">
 	    <xsl:with-param name="style-ns" select="$style-ns"/>
+	    <xsl:with-param name="lang" select="$lang"/>
 	  </xsl:apply-templates>
 	</d:sk>
       </xsl:for-each>

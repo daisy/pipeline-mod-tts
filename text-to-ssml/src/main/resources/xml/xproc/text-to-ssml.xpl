@@ -65,6 +65,10 @@
     stylesheets.</p:documentation>
   </p:option>
 
+  <p:option name="lang" required="false" select="'en'">
+    <p:documentation>Default language.</p:documentation>
+  </p:option>
+
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
   <p:import href="http://www.daisy.org/pipeline/modules/fileset-utils/library.xpl"/>
   <p:import href="styled-text-to-ssml.xpl" />
@@ -109,6 +113,7 @@
     </p:input>
     <p:with-option name="skippable-elements" select="$skippable-elements"/>
     <p:with-option name="style-ns" select="$style-ns"/>
+    <p:with-option name="lang" select="$lang"/>
   </px:skippable-to-ssml>
 
   <p:identity>
@@ -127,6 +132,7 @@
     <p:with-option name="section-attr" select="$section-attr"/>
     <p:with-option name="section-attr-val" select="$section-attr-val"/>
     <p:with-option name="style-ns" select="$style-ns"/>
+    <p:with-option name="lang" select="$lang"/>
   </px:styled-text-to-ssml>
 
 </p:declare-step>

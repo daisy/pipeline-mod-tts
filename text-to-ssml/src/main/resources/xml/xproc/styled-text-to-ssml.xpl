@@ -16,6 +16,7 @@
   <p:option name="section-attr" required="false" select="''"/>
   <p:option name="section-attr-val" required="false" select="''"/>
   <p:option name="style-ns" required="true"/>
+  <p:option name="lang" required="true"/>
 
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
 
@@ -49,7 +50,8 @@
   <!-- Generate the rough skeleton of the SSML document. -->
   <!-- Everything is converted but the content of the sentences.-->
   <p:xslt name="gen-input">
-    <p:with-param  name="style-ns" select="$style-ns"/>
+    <p:with-param name="style-ns" select="$style-ns"/>
+    <p:with-param name="lang" select="$lang"/>
     <p:input port="stylesheet">
       <p:document href="../xslt/generate-tts-input.xsl"/>
     </p:input>

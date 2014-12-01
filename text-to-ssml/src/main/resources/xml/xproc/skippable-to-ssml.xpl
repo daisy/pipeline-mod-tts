@@ -9,6 +9,7 @@
   <p:input port="content.in" sequence="false" primary="true"/>
   <p:output port="result" sequence="true" primary="true"/>
 
+  <p:option name="lang"/>
   <p:option name="skippable-elements"/>
   <p:option name="style-ns"/>
 
@@ -21,6 +22,7 @@
   <p:xslt>
     <p:with-param name="skippable-elements" select="$skippable-elements"/>
     <p:with-param name="style-ns" select="$style-ns"/>
+    <p:with-param name="lang" select="$lang"/>
     <p:input port="stylesheet">
       <p:document href="../xslt/skippable-to-ssml.xsl"/>
     </p:input>

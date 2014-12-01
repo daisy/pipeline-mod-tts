@@ -3,6 +3,7 @@
 		xmlns:p="http://www.w3.org/ns/xproc"
 		xmlns:c="http://www.w3.org/ns/xproc-step"
 		xmlns:px="http://www.daisy.org/ns/pipeline/xproc"
+		xmlns:dt="http://www.daisy.org/z3986/2005/dtbook/"
 		exclude-inline-prefixes="#all"
 		name="main">
 
@@ -24,6 +25,8 @@
     <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
     <p:import href="http://www.daisy.org/pipeline/modules/text-to-ssml/library.xpl" />
     <p:import href="http://www.daisy.org/pipeline/modules/tts-common/library.xpl" />
+
+    <p:variable name="dc-lang" select="//meta[@name='dc:Language']/@content"/>
 
     <px:get-config-annotations content-type="application/x-dtbook+xml" name="get-config-annot">
       <p:input port="config">
@@ -79,6 +82,7 @@
       <p:with-option name="word-element" select="'w'"/>
       <p:with-option name="separate-skippable" select="$separate-skippable"/>
       <p:with-option name="skippable-elements" select="'annoref,linenum,pagenum,noteref'"/>
+      <p:with-option name="lang" select="if ($dc-lang) then $dc-lang else 'en'"/>
     </px:text-to-ssml>
 
     <px:message message="End SSML generation for DTBook"/><p:sink/>
