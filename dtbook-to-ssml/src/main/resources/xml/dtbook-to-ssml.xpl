@@ -23,8 +23,8 @@
     <p:option name="separate-skippable" required="false" select="'true'"/>
 
     <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
-    <p:import href="http://www.daisy.org/pipeline/modules/text-to-ssml/library.xpl" />
-    <p:import href="http://www.daisy.org/pipeline/modules/tts-common/library.xpl" />
+    <p:import href="http://www.daisy.org/pipeline/modules/text-to-ssml/library.xpl"/>
+    <p:import href="http://www.daisy.org/pipeline/modules/tts-helpers/library.xpl"/>
 
     <p:variable name="dc-lang" select="//meta[@name='dc:Language']/@content"/>
 

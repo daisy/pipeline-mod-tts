@@ -3,7 +3,7 @@
 	       xmlns:px="http://www.daisy.org/ns/pipeline/xproc"
 	       xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 	       xmlns:d="http://www.daisy.org/ns/pipeline/data"
-               script="../../../src/main/resources/xml/get-config-annotations.xpl">
+               script="../../../../src/main/resources/xml/xproc/get-config-annotations.xpl">
 
 
   <x:scenario label="Two embedded annotation">
