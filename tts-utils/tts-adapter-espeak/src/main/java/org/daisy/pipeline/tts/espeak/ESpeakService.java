@@ -13,17 +13,24 @@ public class ESpeakService extends AbstractTTSService {
 	@Override
 	public TTSEngine newEngine(Map<String, String> params) throws Throwable {
 		// settings
-		String prop = "espeak.path";
-		String eSpeakPath = params.get(prop);
+		String eSpeakPath = null;
+		String securityProp = "host.protection";
+		String pathProp = "espeak.path";
+		String securityOn = System.getProperty(securityProp, "true");
+		if ("false".equalsIgnoreCase(securityOn)) {
+			//we don't want any random user to execute whatever he/she wants
+			eSpeakPath = params.get(pathProp);
+		}
 		if (eSpeakPath == null) {
 			Optional<String> epath = BinaryFinder.find("espeak");
 			if (!epath.isPresent()) {
-				throw new SynthesisException(
-				        "Cannot find eSpeak's binary and config property " + prop
-				                + " is not set.");
+				throw new SynthesisException("Cannot find eSpeak's binary using properties "
+				        + pathProp + " = " + params.get(pathProp) + " and " + securityProp
+				        + " = " + securityOn);
 			}
 			eSpeakPath = epath.get();
 		}
+
 		String priority = params.get("espeak.priority");
 		int intPriority = 2;
 		if (priority != null) {
