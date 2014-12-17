@@ -157,6 +157,7 @@ public class TextToPcmThread implements FormatSpecifications {
 				mThread.join();
 			} catch (InterruptedException e) {
 				//should not happen
+				ServerLogger.warn("TextToPCMThread interruption");
 			}
 			mThread = null;
 		}
@@ -200,6 +201,7 @@ public class TextToPcmThread implements FormatSpecifications {
 					mAudioBufferTracker.transferToEncoding(mMemFootprint, pcm.sizeInBytes());
 				} catch (InterruptedException e) {
 					// Should never happen since interruptions only occur during calls to TTS processors.
+					ServerLogger.warn("interruption of memory transfer");
 				}
 				pcmOutput.add(pcm);
 				pcm = null;
@@ -223,7 +225,7 @@ public class TextToPcmThread implements FormatSpecifications {
 	        MemoryException {
 		String transformed = transformSSML(ssml, tts, voice);
 		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
-		logEntry.setTTSinput(transformed);
+		logEntry.addTTSinput(transformed);
 		logEntry.setActualVoice(voice);
 		return tts.synthesize(transformed, ssml, voice, threadResources, marks,
 		        mAudioBufferTracker, false);
@@ -236,6 +238,8 @@ public class TextToPcmThread implements FormatSpecifications {
 	        Voice voice, TTSResource threadResources, List<Mark> marks)
 	        throws SaxonApiException, SynthesisException, InterruptedException,
 	        MemoryException {
+		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
+		logEntry.resetTTSinput();
 		if (tts.endingMark() != null
 		        && voice.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED) //can handle marks
 			return synthesizeSSML(tts, ssml, sentenceId, voice, threadResources, marks);
@@ -246,8 +250,8 @@ public class TextToPcmThread implements FormatSpecifications {
 			for (Chunk chunk : chunks) {
 				Collection<AudioBuffer> buffers = null;
 				try {
-					buffers = synthesizeSSML(tts, ssml, sentenceId, voice, threadResources,
-					        new ArrayList<Mark>());
+					buffers = synthesizeSSML(tts, chunk.ssml(), sentenceId, voice,
+					        threadResources, new ArrayList<Mark>());
 				} catch (MemoryException | SaxonApiException | SynthesisException
 				        | InterruptedException e) {
 					//TODO: flush the buffers here
@@ -451,6 +455,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			addBuffers(pcm);
 		} catch (InterruptedException e) {
 			// Should never happen since interruptions only occur during calls to TTS processors.
+			ServerLogger.warn("interruption exception while queuing the PCM buffers");
 		}
 
 		if (marks.size() > 0) {

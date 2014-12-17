@@ -2,6 +2,7 @@ package org.daisy.pipeline.tts.synthesize;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import net.sf.saxon.s9api.XdmNode;
@@ -51,12 +52,12 @@ public class TTSLogEmpty implements TTSLog {
 		}
 
 		@Override
-		public void setTTSinput(String input) {
+		public void addTTSinput(String input) {
 		}
 
 		@Override
-		public String getTTSinput() {
-			return null;
+		public List<String> getTTSinput() {
+			return Collections.EMPTY_LIST;
 		}
 
 		@Override
@@ -80,6 +81,10 @@ public class TTSLogEmpty implements TTSLog {
 		@Override
 		public double getEndInFile() {
 			return 0;
+		}
+
+		@Override
+		public void resetTTSinput() {
 		}
 
 	};

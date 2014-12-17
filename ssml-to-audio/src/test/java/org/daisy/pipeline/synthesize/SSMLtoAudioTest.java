@@ -173,7 +173,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 		@Override
 		public Optional<String> encode(Iterable<AudioBuffer> pcm, AudioFormat audioFormat,
-		        File outputDir, String filePrefix, EncodingOptions options) {
+		        File outputDir, String filePrefix, EncodingOptions options) throws Throwable {
 			synchronized (this) {
 				++count;
 			}
@@ -601,17 +601,23 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 		DefaultAudioEncoder encoder = new DefaultAudioEncoder() {
 			@Override
 			public Optional<String> encode(Iterable<AudioBuffer> pcm, AudioFormat audioFormat,
-			        File outputDir, String filePrefix, EncodingOptions options) {
+			        File outputDir, String filePrefix, EncodingOptions options)
+			        throws Throwable {
+
 				try {
 					Thread.sleep(5000);
-				} catch (InterruptedException e) {
+				} catch (Exception e) {
 					interrupted.set(true);
+					throw e;
 				}
-				return Optional.absent();
+
+				return Optional.of("uri");
 			}
 		};
 
-		runTest(service, (DynamicMarkHandler) service.engine, encoder, 0, 0);
+		runTest(service, (DynamicMarkHandler) service.engine, encoder, 1, 0,
+		        new VoiceConfigForSingleThread(),
+		        "<ssml xml:lang=\"en\" id=\"s1\">test</ssml>");
 		Assert.assertTrue("The audio encoding should have been interrupted", interrupted.get());
 	}
 

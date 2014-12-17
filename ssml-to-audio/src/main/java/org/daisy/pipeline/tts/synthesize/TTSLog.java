@@ -1,6 +1,7 @@
 package org.daisy.pipeline.tts.synthesize;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -71,9 +72,11 @@ public interface TTSLog {
 		 * @param input is the actual string provided as input to the TTS
 		 *            processor
 		 */
-		void setTTSinput(String input);
+		void addTTSinput(String input);
 
-		String getTTSinput();
+		List<String> getTTSinput();
+
+		void resetTTSinput();
 
 		/**
 		 * @param soundfile is a path of a wave, mp3 or ogg file

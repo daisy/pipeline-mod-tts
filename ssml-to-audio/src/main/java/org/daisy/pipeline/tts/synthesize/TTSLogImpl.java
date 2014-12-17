@@ -56,12 +56,12 @@ public class TTSLogImpl implements TTSLog {
 		}
 
 		@Override
-		public void setTTSinput(String input) {
-			this.ttsinput = input;
+		public void addTTSinput(String input) {
+			this.ttsinput.add(input);
 		}
 
 		@Override
-		public String getTTSinput() {
+		public List<String> getTTSinput() {
 			return ttsinput;
 		}
 
@@ -91,9 +91,14 @@ public class TTSLogImpl implements TTSLog {
 			return endInFile;
 		}
 
+		@Override
+		public void resetTTSinput() {
+			ttsinput.clear();
+		}
+
 		private List<Error> errors = new ArrayList<Error>();
 		private XdmNode ssml; //SSML
-		private String ttsinput = ""; //
+		private List<String> ttsinput = new ArrayList<String>();
 		private Voice selectedVoice;
 		private Voice actualVoice;
 		private String soundfile; //

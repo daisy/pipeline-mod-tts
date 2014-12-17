@@ -26,6 +26,22 @@ public class EncodingThread {
 	        final AudioBufferTracker audioBufferTracker, Map<String, String> TTSproperties,
 	        final TTSLog ttslog) {
 
+		//max seconds of encoded audio per seconds of encoding
+		//it would be more accurate with a byte rate instead, but less intuitive
+		float encodingSpeed = 2.0f;
+		String speedProp = "encoding.speed";
+		String speedParam = TTSproperties.get(speedProp);
+		if (speedParam != null) {
+			try {
+				encodingSpeed = Float.valueOf(speedParam);
+			} catch (NumberFormatException e) {
+				String msg = "wrong format for property " + speedProp
+				        + ". A float is expected, not " + speedParam;
+				logger.printInfo(msg);
+				ttslog.addGeneralError(ErrorCode.WARNING, msg);
+			}
+		}
+
 		//Eventually, we should select the encoder using the audio format as criterion, but for now
 		//we always employ the same encoder for every chunk of PCM
 		AudioEncoder encoder = encoderRegistry.getEncoder();
@@ -48,7 +64,7 @@ public class EncodingThread {
 
 		final AudioEncoder.EncodingOptions options = encodingOptions;
 		final AudioEncoder fencoder = encoder;
-
+		final float fEncodingSpeed = encodingSpeed;
 		final TTSTimeout timeout = new TTSTimeout();
 
 		mThread = new Thread() {
@@ -70,17 +86,27 @@ public class EncodingThread {
 					}
 					int jobSize = job.sizeInBytes();
 					if (fencoder != null) {
+						float secs = jobSize / (job.getAudioFormat().getFrameRate());
+						int maxTime = (int) (1.0 + secs / fEncodingSpeed);
 						try {
-							timeout.enableForCurrentThread(3);
+							timeout.enableForCurrentThread(maxTime);
 							Optional<String> destURI = fencoder.encode(job.getBuffers(), job
 							        .getAudioFormat(), job.getDestinationDirectory(), job
 							        .getDestinationFilePrefix(), options);
 							if (destURI.isPresent()) {
 								job.getURIholder().append(destURI.get());
+							} else {
+								String msg = "Audio encoder failed to encode to "
+								        + job.getDestinationFilePrefix();
+								ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
 							}
+						} catch (InterruptedException e) {
+							String msg = "timeout while encoding audio to "
+							        + job.getDestinationFilePrefix() + ": " + getStack(e);
+							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
 						} catch (Throwable t) {
-							String msg = "error while encoding audio: " + getStack(t);
-							logger.printInfo(msg);
+							String msg = "error while encoding audio to "
+							        + job.getDestinationFilePrefix() + ": " + getStack(t);
 							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
 						} finally {
 							timeout.disable();

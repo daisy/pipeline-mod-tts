@@ -254,9 +254,11 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 				}
 
 				if (le.getTTSinput() != null && !le.getTTSinput().isEmpty()) {
-					xmlLog.addStartElement(LogInpTag);
-					xmlLog.addText(le.getTTSinput());
-					xmlLog.addEndElement();
+					for (String inp : le.getTTSinput()) {
+						xmlLog.addStartElement(LogInpTag);
+						xmlLog.addText(inp);
+						xmlLog.addEndElement();
+					}
 				}
 
 				xmlLog.addEndElement(); //LogTextTag
