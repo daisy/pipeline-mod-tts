@@ -47,16 +47,16 @@ import com.google.common.collect.Iterables;
  * TextToPcmThread consumes text from a shared queue. It produces PCM data as
  * output, which in turn are pushed to another shared queue consumed by the
  * EncodingThreads. PCM is produced by calling TTS processors.
- * 
+ *
  * TTS processors may fail for some reasons, e.g. after a timeout or because the
  * ending SSML mark is missing. In such cases, TextToPcmThread will clean up the
  * resources and attempt to synthesize the current sentence with another TTS
  * processor chosen by the TTSRegistry, unless the error is a MemoryException,
  * in which case the thread gives up on the guilty sentence.
- * 
+ *
  * The resources of the TTS processors (e.g. sockets) are allocated on-the-fly
  * and are all released at the end of the thread execution.
- * 
+ *
  */
 public class TextToPcmThread implements FormatSpecifications {
 	private Logger ServerLogger = LoggerFactory.getLogger(TextToPcmThread.class);
@@ -232,7 +232,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			for (Chunk chunk : chunks) {
 				Collection<AudioBuffer> buffers = null;
 				try {
-					buffers = synthesizeSSML(tts, ssml, sentenceId, voice, threadResources,
+				    buffers = synthesizeSSML(tts, chunk.ssml(), sentenceId, voice, threadResources,
 					        new ArrayList<Mark>());
 				} catch (MemoryException | SaxonApiException | SynthesisException
 				        | InterruptedException e) {
