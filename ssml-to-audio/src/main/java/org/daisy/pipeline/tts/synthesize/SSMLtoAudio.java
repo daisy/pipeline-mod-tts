@@ -137,7 +137,7 @@ public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		 */
 
 		TTSTimeout timeout = new TTSTimeout();
-		mProperties = configExt.getProperties();
+		mProperties = configExt.getAllProperties();
 		XslTransformCompiler xslCompiler = new XslTransformCompiler(proc
 		        .getUnderlyingConfiguration(), uriResolver);
 		List<TTSEngine> workingEngines = new ArrayList<TTSEngine>();

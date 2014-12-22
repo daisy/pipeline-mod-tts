@@ -72,10 +72,15 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-     <!-- For the AudioBuffer -->
+    <!-- For the AudioBuffer -->
     <dependency>
       <groupId>org.daisy.pipeline.modules</groupId>
       <artifactId>audio-common</artifactId>
+    </dependency>
+    <!-- For the ConfigReader -->
+    <dependency>
+      <groupId>org.daisy.pipeline.modules</groupId>
+      <artifactId>tts-helpers</artifactId>
     </dependency>
   </dependencies>
 

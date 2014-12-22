@@ -24,7 +24,8 @@ public class ConfigReaderTest {
 	static Processor Proc = new Processor(false);
 	static String docDirectory = "file:///doc/";
 
-	public static CSSConfigExtension initConfigExtension(String xmlstr) throws SaxonApiException {
+	public static CSSConfigExtension initConfigExtension(String xmlstr)
+	        throws SaxonApiException {
 		DocumentBuilder builder = Proc.newDocumentBuilder();
 		SAXSource source = new SAXSource(new InputSource(new StringReader("<config>" + xmlstr
 		        + "</config>")));
@@ -32,7 +33,7 @@ public class ConfigReaderTest {
 		XdmNode document = builder.build(source);
 
 		CSSConfigExtension ext = new CSSConfigExtension();
-		new ConfigReader(document, ext);
+		new ConfigReader(Proc, document, ext);
 		return ext;
 	}
 

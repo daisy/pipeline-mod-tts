@@ -33,7 +33,7 @@ public class ConfigReaderTest {
 		XdmNode document = builder.build(source);
 
 		VoiceConfigExtension ext = new VoiceConfigExtension();
-		new ConfigReader(document, ext);
+		new ConfigReader(Proc, document, ext);
 		return ext;
 	}
 

@@ -70,14 +70,24 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 		}
 
 		@Override
-		public Map<String, String> getProperties() {
+		public Map<String, String> getAllProperties() {
+			return Collections.EMPTY_MAP;
+		}
+
+		@Override
+		public Map<String, String> getStaticProperties() {
+			return Collections.EMPTY_MAP;
+		}
+
+		@Override
+		public Map<String, String> getDynamicProperties() {
 			return Collections.EMPTY_MAP;
 		}
 	}
 
 	private class VoiceConfigForSingleThread extends CustomVoiceConfig {
 		@Override
-		public Map<String, String> getProperties() {
+		public Map<String, String> getAllProperties() {
 			Map<String, String> props = new HashMap<String, String>();
 			props.put("threads.number", "1");
 			return props;

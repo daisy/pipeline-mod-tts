@@ -1,7 +1,6 @@
 package org.daisy.pipeline.tts.config;
 
 import java.io.StringReader;
-import java.net.URISyntaxException;
 
 import javax.xml.transform.sax.SAXSource;
 
@@ -11,6 +10,7 @@ import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 
+import org.junit.After;
 import org.junit.Test;
 import org.xml.sax.InputSource;
 
@@ -26,20 +26,29 @@ public class ConfigReaderTest {
 		source.setSystemId(docDirectory + "uri");
 		XdmNode document = builder.build(source);
 
-		return new ConfigReader(document);
+		return new ConfigReader(Proc, document);
+	}
+
+	@After
+	public void resetSystemProperties() {
+		System.setProperty(ConfigReader.HostProtectionProperty, "true");
 	}
 
 	@Test
-	public void properties() throws SaxonApiException {
+	public void withoutProtection() throws SaxonApiException {
+		System.setProperty(ConfigReader.HostProtectionProperty, "false");
 		ConfigReader cr = initConfigReader("<property key=\"key1\" value=\"val1\"/><property key=\"key2\" value=\"val2\"/>");
-		Assert.assertEquals("val1", cr.getProperty("key1"));
-		Assert.assertEquals("val2", cr.getProperty("key2"));
-		Assert.assertEquals(2, cr.getProperties().size());
+		Assert.assertEquals("val1", cr.getAllProperties().get("key1"));
+		Assert.assertEquals("val2", cr.getDynamicProperties().get("key2"));
+		Assert.assertEquals(2, cr.getAllProperties().size());
+		Assert.assertEquals(2, cr.getDynamicProperties().size());
 	}
 
 	@Test
-	public void configDocURI() throws SaxonApiException, URISyntaxException {
-		ConfigReader cr = initConfigReader("<css href=\"foo/bar/path.css\"/>");
-		Assert.assertTrue(cr.getConfigDocURI() != null);
+	public void withProtection() throws SaxonApiException {
+		System.setProperty(ConfigReader.HostProtectionProperty, "true");
+		ConfigReader cr = initConfigReader("<property key=\"key1\" value=\"val1\"/><property key=\"key2\" value=\"val2\"/>");
+		Assert.assertEquals(0, cr.getAllProperties().size());
+		Assert.assertEquals(2, cr.getDynamicProperties().size());
 	}
 }

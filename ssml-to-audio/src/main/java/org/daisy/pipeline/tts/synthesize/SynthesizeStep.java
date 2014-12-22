@@ -138,9 +138,9 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		}
 
 		VoiceConfigExtension configExt = new VoiceConfigExtension();
-		ConfigReader cr = new ConfigReader(config.read(), configExt);
+		ConfigReader cr = new ConfigReader(mRuntime.getProcessor(), config.read(), configExt);
 
-		String logEnabledProp = cr.getProperty("log");
+		String logEnabledProp = cr.getAllProperties().get("log");
 		boolean logEnabled = "true".equalsIgnoreCase(logEnabledProp) && mOutputDirOpt != null
 		        && !mOutputDirOpt.isEmpty();
 		TTSLog log;
@@ -149,7 +149,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		} else
 			log = new TTSLogEmpty();
 
-		String tmpDir = cr.getProperty("audio.tmpdir");
+		String tmpDir = cr.getStaticProperties().get("audio.tmpdir");
 		if (tmpDir == null)
 			tmpDir = System.getProperty("java.io.tmpdir");
 		File audioOutputDir = null;

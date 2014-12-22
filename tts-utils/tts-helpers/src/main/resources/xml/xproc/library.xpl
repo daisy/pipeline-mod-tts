@@ -2,6 +2,6 @@
 <p:library xmlns:p="http://www.w3.org/ns/xproc" version="1.0">
 
     <p:import href="create-audio-fileset.xpl"/>
-    <p:import href="get-config-annotations.xpl"/>
+    <p:import href="get-tts-annotations.xpl"/>
 
 </p:library>

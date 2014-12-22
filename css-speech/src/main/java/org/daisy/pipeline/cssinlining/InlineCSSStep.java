@@ -128,10 +128,8 @@ public class InlineCSSStep extends DefaultStep implements TreeWriterFactory {
 		//read config
 		ConfigReader cr = null;
 		CSSConfigExtension cssExt = new CSSConfigExtension();
-		while (mConfig.moreDocuments()) {
-			cr = new ConfigReader(mConfig.read(), cssExt);
-			break;
-		}
+		XdmNode config = mConfig.read();
+		cr = new ConfigReader(mRuntime.getProcessor(), config, cssExt);
 
 		//read first document
 		XdmNode doc = null;
@@ -147,7 +145,7 @@ public class InlineCSSStep extends DefaultStep implements TreeWriterFactory {
 		CSSInliner inliner = new CSSInliner();
 		SpeechSheetAnalyser analyzer = new SpeechSheetAnalyser();
 		try {
-			analyzer.analyse(alluris, cssExt.getEmbeddedCSS(), cr.getConfigDocURI());
+			analyzer.analyse(alluris, cssExt.getEmbeddedCSS(), config.getDocumentURI());
 		} catch (Throwable t) {
 			mRuntime.warning(t);
 			mResult.write(doc);

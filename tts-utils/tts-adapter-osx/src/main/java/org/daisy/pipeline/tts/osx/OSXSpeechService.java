@@ -11,7 +11,7 @@ public class OSXSpeechService extends AbstractTTSService {
 	public TTSEngine newEngine(Map<String, String> params) throws Throwable {
 		// settings
 		String prop = "osxspeech.path";
-		String sayPath = params.get(prop);
+		String sayPath = System.getProperty(prop);
 		if (sayPath == null) {
 			sayPath = "/usr/bin/say";
 		}

@@ -11,11 +11,12 @@ import net.sf.saxon.s9api.XdmNode;
 import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceInfo;
 import org.daisy.pipeline.tts.VoiceInfo.Gender;
+import org.daisy.pipeline.tts.config.ConfigProperties;
 import org.daisy.pipeline.tts.config.ConfigReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class VoiceConfigExtension implements ConfigReader.Extension {
+public class VoiceConfigExtension implements ConfigReader.Extension, ConfigProperties {
 
 	private Logger Logger = LoggerFactory.getLogger(VoiceConfigExtension.class);
 
@@ -66,8 +67,19 @@ public class VoiceConfigExtension implements ConfigReader.Extension {
 		return mVoices;
 	}
 
-	public Map<String, String> getProperties() {
-		return mConfigReader.getProperties();
+	@Override
+	public Map<String, String> getStaticProperties() {
+		return mConfigReader.getStaticProperties();
+	}
+
+	@Override
+	public Map<String, String> getDynamicProperties() {
+		return mConfigReader.getStaticProperties();
+	}
+
+	@Override
+	public Map<String, String> getAllProperties() {
+		return mConfigReader.getAllProperties();
 	}
 
 	private ConfigReader mConfigReader;

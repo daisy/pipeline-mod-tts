@@ -2,6 +2,7 @@ package org.daisy.pipeline.cssinlining;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -22,20 +23,12 @@ public class CSSConfigExtension implements ConfigReader.Extension {
 		if ("css".equalsIgnoreCase(name)) {
 			String href = node.getAttributeValue(new QName(null, "href"));
 			if (href != null) {
-				URI uri = null;
-				try {
-					uri = new URI(href);
-				} catch (URISyntaxException e) {
+				URL url = ConfigReader.URIinsideConfig(href, documentURI);
+				if (url != null)
 					try {
-						uri = new URI("file://" + href);
-					} catch (URISyntaxException e1) {
-						Logger.error("Invalid URI in config file: " + href);
-						return true;
+						mCSSuris.add(url.toURI());
+					} catch (URISyntaxException e) {
 					}
-				}
-				if (!uri.isAbsolute())
-					uri = documentURI.resolve(uri);
-				mCSSuris.add(uri);
 			} else {
 				String content = node.getStringValue();
 				if (content != null && !content.isEmpty()) {

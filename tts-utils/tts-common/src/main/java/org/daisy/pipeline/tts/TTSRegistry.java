@@ -9,7 +9,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.xml.transform.URIResolver;
 
+import net.sf.saxon.s9api.Processor;
+
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
+import org.daisy.pipeline.tts.config.ConfigReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,13 +88,14 @@ public class TTSRegistry {
 	 * @param params include TTS properties such as server IPs.
 	 * @return
 	 */
-	public Collection<Voice> getAllAvaibleVoices(Map<String, String> params) {
+	public Collection<Voice> getAllAvaibleVoices(Processor saxonProcessor) {
+		ConfigReader cr = new ConfigReader(saxonProcessor);
 		TTSTimeout timeout = new TTSTimeout();
 		List<Voice> result = new ArrayList<Voice>();
 		for (TTSService service : mServices) {
 			try {
 				timeout.enableForCurrentThread(2);
-				TTSEngine engine = service.newEngine(params);
+				TTSEngine engine = service.newEngine(cr.getStaticProperties());
 				result.addAll(engine.getAvailableVoices());
 			} catch (Throwable e) {
 				//ignore

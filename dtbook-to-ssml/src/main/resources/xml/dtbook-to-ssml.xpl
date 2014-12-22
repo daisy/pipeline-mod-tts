@@ -28,11 +28,11 @@
 
     <p:variable name="dc-lang" select="//meta[@name='dc:Language']/@content"/>
 
-    <px:get-config-annotations content-type="application/x-dtbook+xml" name="get-config-annot">
+    <px:get-tts-annotations content-type="application/x-dtbook+xml" name="get-config-annot">
       <p:input port="config">
 	<p:pipe port="config" step="main"/>
       </p:input>
-    </px:get-config-annotations>
+    </px:get-tts-annotations>
     <p:count limit="1"/>
     <p:choose name="get-annotations">
       <p:when test=". &gt; 0">
