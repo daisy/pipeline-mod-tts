@@ -39,4 +39,5 @@ public interface FormatSpecifications {
 	public static final QName Log_attr_end = new QName("", "end");
 	public static final QName Log_attr_selected_voice = new QName("", "selected-voice");
 	public static final QName Log_attr_actual_voice = new QName("", "actual-voice");
+	public static final QName Log_attr_timeout = new QName("", "timeout");
 }

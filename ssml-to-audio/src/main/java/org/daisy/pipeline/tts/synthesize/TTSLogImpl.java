@@ -96,6 +96,16 @@ public class TTSLogImpl implements TTSLog {
 			ttsinput.clear();
 		}
 
+		@Override
+		public void setTimeout(float secs) {
+			this.timeout = secs;
+		}
+
+		@Override
+		public float getTimeout() {
+			return timeout;
+		}
+
 		private List<Error> errors = new ArrayList<Error>();
 		private XdmNode ssml; //SSML
 		private List<String> ttsinput = new ArrayList<String>();
@@ -104,6 +114,7 @@ public class TTSLogImpl implements TTSLog {
 		private String soundfile; //
 		private double beginInFile; //in seconds
 		private double endInFile; //in seconds
+		private float timeout;
 	}
 
 	public Entry getOrCreateEntry(String id) {

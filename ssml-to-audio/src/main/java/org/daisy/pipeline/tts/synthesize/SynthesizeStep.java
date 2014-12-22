@@ -238,6 +238,9 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 					xmlLog.addAttribute(Log_attr_begin, String.valueOf(le.getBeginInFile()));
 					xmlLog.addAttribute(Log_attr_end, String.valueOf(le.getEndInFile()));
 				}
+
+				xmlLog.addAttribute(Log_attr_timeout, "" + le.getTimeout() + "s");
+
 				if (le.getSelectedVoice() != null)
 					xmlLog.addAttribute(Log_attr_selected_voice, le.getSelectedVoice()
 					        .toString());

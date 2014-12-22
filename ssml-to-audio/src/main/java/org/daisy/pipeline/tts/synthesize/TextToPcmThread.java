@@ -280,7 +280,7 @@ public class TextToPcmThread implements FormatSpecifications {
 	/**
 	 * @return null if something went wrong
 	 */
-	private Iterable<AudioBuffer> speakWithVoice(Sentence sentence, Voice v,
+	private Iterable<AudioBuffer> speakWithVoice(final Sentence sentence, Voice v,
 	        final TTSEngine tts, List<Mark> marks, TTSTimeout timeout) throws MemoryException {
 		//allocate a TTS resource if necessary
 		TTSResource resource = mResources.get(tts);
@@ -332,10 +332,12 @@ public class TextToPcmThread implements FormatSpecifications {
 				String msg = "Forcing interruption of the current work of "
 				        + TTSServiceUtil.displayName(tts.getProvider()) + "...";
 				ServerLogger.warn(msg);
-				mTTSLog.addGeneralError(ErrorCode.WARNING, msg);
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(ErrorCode.WARNING, msg));
 				tts.interruptCurrentWork(fresource);
 			}
 		};
+		mTTSLog.getWritableEntry(sentence.getID()).setTimeout(timeoutSecs);
 		try {
 			timeout.enableForCurrentThread(interrupter, timeoutSecs);
 			synchronized (resource) {
@@ -344,7 +346,8 @@ public class TextToPcmThread implements FormatSpecifications {
 					        + TTSServiceUtil.displayName(tts.getProvider())
 					        + " is no longer valid. The corresponding service has probably been stopped.";
 					mPipelineLogger.printInfo(msg);
-					mTTSLog.addGeneralError(ErrorCode.WARNING, msg);
+					mTTSLog.getWritableEntry(sentence.getID()).addError(
+					        new TTSLog.Error(ErrorCode.WARNING, msg));
 					return null;
 				}
 				pcm = synthesize(tts, sentence.getText(), sentence.getID(), v, resource, marks);

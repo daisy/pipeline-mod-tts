@@ -87,6 +87,15 @@ public class TTSLogEmpty implements TTSLog {
 		public void resetTTSinput() {
 		}
 
+		@Override
+		public void setTimeout(float secs) {
+		}
+
+		@Override
+		public float getTimeout() {
+			return 0;
+		}
+
 	};
 
 	@Override

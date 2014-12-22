@@ -19,6 +19,7 @@ public interface TTSLog {
 		UNEXPECTED_VOICE,
 		AUDIO_MISSING,
 		CRITICAL_ERROR,
+		ERROR,
 		WARNING
 	}
 
@@ -84,6 +85,13 @@ public interface TTSLog {
 		void setSoundfile(String soundfile);
 
 		String getSoundFile();
+
+		/**
+		 * @param secs is the timeout value used while synthesizing the entry
+		 */
+		void setTimeout(float secs);
+
+		float getTimeout();
 
 		/**
 		 * @param begin offset in seconds
