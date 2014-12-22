@@ -50,6 +50,74 @@
     <xsl:value-of select="' '"/>
   </xsl:template>
 
+  <!-- Detect Roman numerals. While it would be useful to make this
+       code available for other formats than DTBook (i.e. XHTML and
+       ZedAi), the algorithm to iterate over the titles of the same
+       level can be quite different from one format to another, XHTML
+       being less strict than DTBook regarding headers' positioning. -->
+  <xsl:variable name="headers" select="('levelhd', 'hd', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6')"/>
+  <xsl:template match="dt:w[count(*) = 0]">
+    <xsl:variable name="text" select="dt:normalize(text())"/>
+    <xsl:copy>
+      <xsl:copy-of select="@*"/>
+      <xsl:choose>
+	<xsl:when test="not(dt:is-numeral($text))">
+	  <xsl:apply-templates select="node()"/>
+	</xsl:when>
+	<xsl:otherwise>
+	  <xsl:variable name="header" select="ancestor::*[$headers = local-name()][1]"/>
+	  <xsl:choose>
+	    <xsl:when test="not($header)">
+	      <xsl:apply-templates select="node()"/>
+	    </xsl:when>
+	    <xsl:otherwise>
+	      <xsl:variable name="level" select="$header/ancestor::*[dt:is-level(.)][1]"/>
+	      <xsl:choose>
+		<xsl:when test="($text = 'i' and
+				dt:is-numeral(dt:normalize(dt:title-prefix($level/following-sibling::*[dt:is-level(.)][1])))) or
+				dt:is-numeral(dt:normalize(dt:title-prefix($level/preceding-sibling::*[dt:is-level(.)][1])))">
+		  <ssml:say-as interpret-as="cardinal">
+		    <xsl:value-of select="upper-case($text)"/>  <!-- alternatively, it could be converted to an Arabic numeral -->
+		  </ssml:say-as>
+		</xsl:when>
+		<xsl:otherwise>
+		  <xsl:apply-templates select="node()"/>
+		</xsl:otherwise>
+	      </xsl:choose>
+	    </xsl:otherwise>
+	  </xsl:choose>
+	</xsl:otherwise>
+      </xsl:choose>
+    </xsl:copy>
+  </xsl:template>
+
+  <xsl:function name="dt:normalize">
+    <xsl:param name="nodes"/>
+    <xsl:analyze-string select="lower-case(string-join($nodes, ''))" regex="^(.+)[).]?$">
+      <xsl:matching-substring>
+	<xsl:value-of select="regex-group(1)"/>
+      </xsl:matching-substring>
+      <xsl:non-matching-substring/>
+    </xsl:analyze-string>
+  </xsl:function>
+
+  <xsl:function name="dt:title-prefix">
+    <xsl:param name="level"/>
+    <xsl:value-of select="(($level//*[$headers = local-name()])[1]//dt:w)[1]/text()"/>
+  </xsl:function>
+
+
+  <xsl:function name="dt:is-level" as="xs:boolean">
+    <xsl:param name="node"/>
+    <xsl:value-of select="starts-with(local-name($node), 'level')"/>
+  </xsl:function>
+
+
+  <!-- there is also a similar function in common-utils -->
+  <xsl:function name="dt:is-numeral" as="xs:boolean">
+    <xsl:param name="normalized-word"/>
+    <xsl:value-of select="matches($normalized-word, '^[ivxclm]+$')"/>
+  </xsl:function>
 
 </xsl:stylesheet>
 
