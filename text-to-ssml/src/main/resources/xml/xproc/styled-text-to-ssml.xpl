@@ -19,6 +19,7 @@
   <p:option name="lang" required="true"/>
 
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
+  <p:import href="http://www.daisy.org/pipeline/modules/tts-helpers/library.xpl"/>
 
   <!-- Encapsulates the section elements into tmp:group. -->
   <p:xslt name="identify-sections">
@@ -75,22 +76,11 @@
   <!-- ============================================================== -->
 
   <!-- Load the user's lexicons. -->
-  <p:for-each name="user-lexicons">
-    <p:output port="result" sequence="true"/>
-    <p:iteration-source select="//*[local-name() = 'lexicon' and exists(@href)]">
+  <px:get-tts-lexicons name="user-lexicons">
+    <p:input port="config">
       <p:pipe port="config" step="main"/>
-    </p:iteration-source>
-    <p:variable name="config-uri" select="p:base-uri(/*)">
-      <p:pipe port="config" step="main"/>
-    </p:variable>
-    <p:variable name="lexicon-uri" select="resolve-uri(*/@href, $config-uri)"/>
-    <p:load>
-      <p:with-option name="href" select="$lexicon-uri"/>
-    </p:load>
-    <px:message>
-      <p:with-option name="message" select="concat('loaded lexicon: ', $lexicon-uri)"/>
-    </px:message>
-  </p:for-each>
+    </p:input>
+  </px:get-tts-lexicons>
 
   <!-- iterate over the fileset to extract the lexicons URI, then load them -->
   <!-- from the disk -->

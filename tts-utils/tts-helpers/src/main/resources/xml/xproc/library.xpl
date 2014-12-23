@@ -3,5 +3,6 @@
 
     <p:import href="create-audio-fileset.xpl"/>
     <p:import href="get-tts-annotations.xpl"/>
+    <p:import href="get-tts-lexicons.xpl"/>
 
 </p:library>

@@ -31,8 +31,8 @@ public class AnnotationsConfigExtension implements ConfigReader.Extension {
 			if (!mAnnotations.containsKey(type))
 				mAnnotations.put(type, new ArrayList<XdmNode>());
 			if (href != null) {
-				XdmNode external = ConfigReader.readFromURIinsideConfig(href, node.getProcessor(),
-				        documentURI);
+				XdmNode external = ConfigReader.readFromURIinsideConfig(href, node
+				        .getProcessor(), documentURI);
 				if (external != null) {
 					Logger.info("custom annotations read from " + external.getDocumentURI());
 					mAnnotations.get(type).add(external);
@@ -53,9 +53,9 @@ public class AnnotationsConfigExtension implements ConfigReader.Extension {
 		return Collections.EMPTY_LIST;
 	}
 
-	private Map<String, List<XdmNode>> mAnnotations = new HashMap<String, List<XdmNode>>();
-
 	@Override
 	public void setParentReader(ConfigReader cr) {
 	}
+
+	private Map<String, List<XdmNode>> mAnnotations = new HashMap<String, List<XdmNode>>();
 }
