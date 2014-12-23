@@ -44,7 +44,7 @@ public class ConfigReader implements ConfigProperties {
 	public ConfigReader(Processor saxonproc, XdmNode doc, Extension... extensions) {
 		String staticConfigPath = System.getProperty("tts.config");
 		if (staticConfigPath != null) {
-			XdmNode content = readURIinsideConfig(staticConfigPath, saxonproc, null);
+			XdmNode content = readFromURIinsideConfig(staticConfigPath, saxonproc, null);
 			if (content != null)
 				readConfig(mStaticProps, content, extensions);
 		}
@@ -85,15 +85,17 @@ public class ConfigReader implements ConfigProperties {
 		return url;
 	}
 
-	static public XdmNode readURIinsideConfig(String pathOrURI, Processor saxonproc,
+	static public XdmNode readFromURIinsideConfig(String pathOrURI, Processor saxonproc,
 	        URI relativeTo) {
 		URL url = URIinsideConfig(pathOrURI, relativeTo);
-		try {
-			SAXSource source = new SAXSource(new InputSource(url.openStream()));
-			source.setSystemId(url.toString());
-			return saxonproc.newDocumentBuilder().build(source);
-		} catch (Exception e) {
-			Logger.debug("error while reading " + url + ": " + e);
+		if (url != null) {
+			try {
+				SAXSource source = new SAXSource(new InputSource(url.openStream()));
+				source.setSystemId(url.toString());
+				return saxonproc.newDocumentBuilder().build(source);
+			} catch (Exception e) {
+				Logger.debug("error while reading " + url + ": " + e);
+			}
 		}
 		return null;
 	}
@@ -105,6 +107,7 @@ public class ConfigReader implements ConfigProperties {
 		}
 
 		URI docURI = doc.getDocumentURI();
+
 		XdmSequenceIterator it = doc.axisIterator(Axis.CHILD);
 		XdmNode root = doc;
 		while (doc.getNodeKind() != XdmNodeKind.ELEMENT && it.hasNext())

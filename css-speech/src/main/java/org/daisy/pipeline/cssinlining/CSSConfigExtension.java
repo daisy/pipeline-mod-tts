@@ -48,10 +48,10 @@ public class CSSConfigExtension implements ConfigReader.Extension {
 		return mEmbeddedCSS;
 	}
 
-	private Collection<URI> mCSSuris = new ArrayList<URI>();
-	private Collection<String> mEmbeddedCSS = new ArrayList<String>();
-
 	@Override
 	public void setParentReader(ConfigReader cr) {
 	}
+
+	private Collection<URI> mCSSuris = new ArrayList<URI>();
+	private Collection<String> mEmbeddedCSS = new ArrayList<String>();
 }

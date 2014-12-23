@@ -31,7 +31,7 @@ public class AnnotationsConfigExtension implements ConfigReader.Extension {
 			if (!mAnnotations.containsKey(type))
 				mAnnotations.put(type, new ArrayList<XdmNode>());
 			if (href != null) {
-				XdmNode external = ConfigReader.readURIinsideConfig(href, node.getProcessor(),
+				XdmNode external = ConfigReader.readFromURIinsideConfig(href, node.getProcessor(),
 				        documentURI);
 				if (external != null) {
 					Logger.info("custom annotations read from " + external.getDocumentURI());

@@ -1,6 +1,5 @@
 package org.daisy.pipeline.cssinlining;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -61,11 +60,14 @@ public class SpeechSheetAnalyser {
 
 		List<StyleSheet> styleSheets = new ArrayList<StyleSheet>();
 		for (int k = 0; k < csscode.size(); ++k) {
-			String basePath = new File(alluris.get(k)).getParent();
+			String basePath = alluris.get(k).resolve(".").toString();
 			String withAbsURL = makeURLabsolute(csscode.get(k), basePath);
 			styleSheets.add(CSSParserFactory.parse(withAbsURL, null, SourceType.EMBEDDED,
 			        new URL("http://base")));
-			//we cannot use CSSFactory.parse(withAbsURL) because it tries to convert the null base URL into String.
+			/*
+			 * we cannot use CSSFactory.parse(withAbsURL) because it tries to
+			 * convert the null base URL into a String
+			 */
 		}
 
 		mAnalyzer = new Analyzer(styleSheets);

@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
@@ -107,7 +108,8 @@ public class CSSInliningTest implements TreeWriterFactory {
 
 		boolean match = Pattern.matches(expected.toString(), result.toString());
 
-		Assert.assertTrue(match);
+		Assert.assertTrue(expected.toString() + " and,\n" + result.toString()
+		        + " must match with each other", match);
 	}
 
 	@Test
@@ -141,8 +143,9 @@ public class CSSInliningTest implements TreeWriterFactory {
 	@Test
 	public void cuePath() throws SaxonApiException, URISyntaxException, IOException,
 	        CSSException {
-		String expectedPath = new URI(Paths.get(System.getProperty("user.dir"),
-		        "src/test/resources/").toString()).toString();
+		String expectedPath = new URL("file://"
+		        + Paths.get(System.getProperty("user.dir"), "src/test/resources/").toString())
+		        .toString();
 		check("<root><simple>test</simple></root>", null, "<root", "<simple",
 		        "tts:cue-after=\"" + expectedPath + "/[-_a-z0-9]+\\.mp3\"", "test",
 		        "</simple>", "</root>");
