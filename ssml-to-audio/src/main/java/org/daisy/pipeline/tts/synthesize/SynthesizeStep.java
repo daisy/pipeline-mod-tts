@@ -149,7 +149,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		} else
 			log = new TTSLogEmpty();
 
-		String tmpDir = cr.getStaticProperties().get("audio.tmpdir");
+		String tmpDir = cr.getAllProperties().get("audio.tmpdir");
 		if (tmpDir == null)
 			tmpDir = System.getProperty("java.io.tmpdir");
 		File audioOutputDir = null;
