@@ -1,7 +1,7 @@
 <p:declare-step version="1.0" type="px:create-audio-fileset" name="main"
 		xmlns:p="http://www.w3.org/ns/xproc"
 		xmlns:px="http://www.daisy.org/ns/pipeline/xproc"
-		xmlns:d="http://www.daisy.org/ns/pipeline/data">
+		xmlns:pxi="http://www.daisy.org/ns/pipeline/xproc/internal">
 
   <p:input port="source" primary="true" /> <!-- audio clips -->
   <p:output port="fileset.out" sequence="false" primary="true">  <!-- fileset of audio files -->
@@ -16,15 +16,16 @@
   <p:option name="anti-conflict-prefix" required="false" select="''"/>
 
   <p:import href="http://www.daisy.org/pipeline/modules/fileset-utils/library.xpl"/>
+  <p:import href="internal/list-audio-files.xpl"/>
 
   <p:variable name="audio-dir" select="concat($output-dir, $audio-relative-dir)">
     <p:empty/>
   </p:variable>
 
   <!-- Iterate over the sound clips of the audio-map. -->
+  <pxi:list-audio-files/>
   <p:for-each name="for-each-audio">
-    <!-- identical audio files should be adjacent in the clip list -->
-    <p:iteration-source select="//d:clip[not(preceding::d:clip[1]) or (@src != preceding::d:clip[1]/@src)]"/>
+    <p:iteration-source select="//*[@src]"/>
     <p:variable name="former-src" select="/*/@src">
       <p:pipe port="current" step="for-each-audio"/>
     </p:variable>
