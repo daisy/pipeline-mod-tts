@@ -159,6 +159,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 			audioOutputDir = new File(audioDir);
 		} while (audioOutputDir.exists());
 		audioOutputDir.mkdir();
+		audioOutputDir.deleteOnExit();
 
 		SSMLtoAudio ssmltoaudio = new SSMLtoAudio(audioOutputDir, mTTSRegistry, this,
 		        mAudioBufferTracker, mRuntime.getProcessor(), mURIresolver, cr, log);
