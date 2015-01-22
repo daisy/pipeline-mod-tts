@@ -1,173 +1,153 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <x:description xmlns:x="http://www.daisy.org/ns/xprocspec"
 	       xmlns:pxi="http://www.daisy.org/ns/pipeline/xproc/internal"
 	       xmlns="http://www.daisy.org/z3986/2005/dtbook/"
 	       xmlns:ssml="http://www.w3.org/2001/10/synthesis"
 	       xmlns:tmp="http://www.daisy.org/ns/pipeline/tmp"
-               script="../../main/resources/xml/xslt/extract-skippable.xsl">
+               script="../../main/resources/xml/xproc/extract-skippable.xpl">
 
 
-  <x:script>
-    <p:declare-step version="1.0"
-  		    xmlns:p="http://www.w3.org/ns/xproc"
-  		    type="pxi:extract-skippable-wrapper">
-
-      <p:input port="source" primary="true"/>
-      <p:output port="result" primary="true"/>
-      <p:xslt name="xslt">
-  	<p:with-param name="skippable-elements" select="'pagenum,noteref'"/>
-  	<p:input port="stylesheet">
-  	  <p:document href="../../main/resources/xml/xslt/extract-skippable.xsl"/>
-  	</p:input>
-      </p:xslt>
-      <p:wrap-sequence wrapper="ssml:root">
-  	<p:input port="source">
-  	  <p:pipe port="result" step="xslt"/>
-  	  <p:pipe port="secondary" step="xslt"/>
-  	</p:input>
-      </p:wrap-sequence>
-    </p:declare-step>
-  </x:script>
-
-
-
-  <x:scenario label="one skippable type, one mark">
-    <x:call step="pxi:extract-skippable-wrapper">
-      <x:input port="source">
+  <x:scenario label="Skippable separation">
+    <x:call step="pxi:extract-skippable">
+      <x:input port="skippable-ids">
 	<x:document type="inline">
-	  <dtbook>
-	    <ssml:s id="s1">
-	      <span id="left">left</span><pagenum id="pnum">1</pagenum><span id="right">right</span>
-	    </ssml:s>
-	  </dtbook>
-        </x:document>
+	  <tmp:skippables>
+	    <tmp:sk id="pnum"/>
+	    <tmp:sk id="pnum1"/>
+	    <tmp:sk id="pnum2"/>
+	    <tmp:sk id="nref"/>
+	  </tmp:skippables>
+	</x:document>
       </x:input>
     </x:call>
-    <x:context label="result">
-      <x:document type="port" port="result"/>
-    </x:context>
-    <x:expect label="skippable-free" type="compare">
-      <x:document type="inline">
-	<ssml:root>
+
+    <x:scenario label="one skippable type, one mark">
+      <x:call step="pxi:extract-skippable">
+	<x:input port="source">
+	  <x:document type="inline">
+	    <dtbook>
+	      <ssml:s id="s1" tmp:css="something">
+		<span id="left">left</span><pagenum id="pnum">1</pagenum><span id="right">right</span>
+	      </ssml:s>
+	    </dtbook>
+	  </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="skippable-free"/>
+	<x:document type="port" port="skippable-only"/>
+      </x:context>
+      <x:expect label="skippable-separated" type="compare">
+	<x:document type="inline">
 	  <dtbook>
-	    <ssml:s id="s1">
+	    <ssml:s id="s1" tmp:css="something">
 	      <span id="left">left</span><ssml:mark name="left___right"/><span id="right">right</span>
 	    </ssml:s>
 	  </dtbook>
-	  <dtbook>
-	    <ssml:s id="s1">
-	      <span id="left"></span><pagenum id="pnum">1</pagenum><span id="right"></span>
+	  <ssml:speak version="1.1">
+	    <ssml:s id="holder-of-pnum" tmp:css="something">
+	      <pagenum id="pnum">1</pagenum>
 	    </ssml:s>
-	  </dtbook>
-	</ssml:root>
-      </x:document>
-    </x:expect>
-  </x:scenario>
+	  </ssml:speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
 
-  <x:scenario label="no element after">
-    <x:call step="pxi:extract-skippable-wrapper">
-      <x:input port="source">
+    <x:scenario label="skippable elt deep inside sentence">
+      <x:call step="pxi:extract-skippable">
+	<x:input port="source">
+	  <x:document type="inline">
+	    <dtbook>
+	      <ssml:s id="s1" tmp:css="something">
+		<span id="left">left</span>
+		<p>
+		  <span>
+		    <pagenum id="pnum">1</pagenum>
+		  </span>
+		</p>
+		<span id="right">right</span>
+	      </ssml:s>
+	    </dtbook>
+	  </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="skippable-free"/>
+	<x:document type="port" port="skippable-only"/>
+      </x:context>
+      <x:expect label="skippable-separated" type="compare">
 	<x:document type="inline">
 	  <dtbook>
-	    <ssml:s id="s1">
-	      <span id="left">left</span><pagenum id="pnum">1</pagenum>
+	    <ssml:s id="s1" tmp:css="something">
+	      <span id="left">left</span><ssml:mark name="left___right"/><span id="right">right</span>
 	    </ssml:s>
 	  </dtbook>
-        </x:document>
-      </x:input>
-    </x:call>
-    <x:context label="result">
-      <x:document type="port" port="result"/>
-    </x:context>
-    <x:expect label="skippable-free" type="compare">
-      <x:document type="inline">
-	<ssml:root>
+	  <ssml:speak version="1.1">
+	    <ssml:s id="holder-of-pnum" tmp:css="something">
+	      <p>
+		<span>
+		  <pagenum id="pnum">1</pagenum>
+		</span>
+	      </p>
+	    </ssml:s>
+	  </ssml:speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
+
+    <x:scenario label="no element after">
+      <x:call step="pxi:extract-skippable">
+	<x:input port="source">
+	  <x:document type="inline">
+	    <dtbook>
+	      <ssml:s id="s1">
+		<span id="left">left</span><pagenum id="pnum">1</pagenum>
+	      </ssml:s>
+	    </dtbook>
+	  </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="skippable-free"/>
+      </x:context>
+      <x:expect label="skippable-free" type="compare">
+	<x:document type="inline">
 	  <dtbook>
 	    <ssml:s id="s1">
 	      <span id="left">left</span><ssml:mark name="left___"/>
 	    </ssml:s>
 	  </dtbook>
-	  <dtbook>
-	    <ssml:s id="s1">
-	      <span id="left"></span><pagenum id="pnum">1</pagenum>
-	    </ssml:s>
-	  </dtbook>
-	</ssml:root>
-      </x:document>
-    </x:expect>
-  </x:scenario>
+	</x:document>
+      </x:expect>
+    </x:scenario>
 
+    <x:scenario label="one skippable type, two marks">
+      <x:call step="pxi:extract-skippable">
+    	<x:input port="source">
+    	  <x:document type="inline">
+    	    <dtbook>
+    	      <ssml:s id="s1">
+    	    	<span id="left1">left</span><pagenum id="pnum1">1</pagenum><span id="right1">right</span>
+    	    	<span id="left2">left</span><pagenum id="pnum2">2</pagenum><span id="right2">right</span>
+    	      </ssml:s>
+    	    </dtbook>
+    	  </x:document>
+    	</x:input>
+      </x:call>
+      <x:context label="result">
+    	<x:document type="port" port="skippable-free"/>
+      </x:context>
+      <x:expect label="result" type="compare">
+    	<x:document type="inline">
+    	  <dtbook>
+    	    <ssml:s id="s1">
+    	      <span id="left1">left</span><ssml:mark name="left1___right1"/><span id="right1">right</span>
+    	      <span id="left2">left</span><ssml:mark name="left2___right2"/><span id="right2">right</span>
+    	    </ssml:s>
+    	  </dtbook>
+    	</x:document>
+      </x:expect>
+    </x:scenario>
 
-  <x:scenario label="one skippable type, two marks">
-    <x:call step="pxi:extract-skippable-wrapper">
-      <x:input port="source">
-	<x:document type="inline">
-	  <dtbook>
-	    <ssml:s id="s1">
-	      <span id="left1">left</span><pagenum id="pnum1">1</pagenum><span id="right1">right</span>
-	      <span id="left2">left</span><pagenum id="pnum2">2</pagenum><span id="right2">right</span>
-	    </ssml:s>
-	  </dtbook>
-        </x:document>
-      </x:input>
-    </x:call>
-    <x:context label="result">
-      <x:document type="port" port="result"/>
-    </x:context>
-    <x:expect label="result" type="compare">
-      <x:document type="inline">
-	 <ssml:root>
-	   <dtbook>
-	     <ssml:s id="s1">
-	       <span id="left1">left</span><ssml:mark name="left1___right1"/><span id="right1">right</span>
-	       <span id="left2">left</span><ssml:mark name="left2___right2"/><span id="right2">right</span>
-	     </ssml:s>
-	 </dtbook>
-	 <dtbook>
-	   <ssml:s id="s1">
-	     <span id="left1"/><pagenum id="pnum1">1</pagenum><span id="right1"/>
-	     <span id="left2"/><pagenum id="pnum2">2</pagenum><span id="right2"/>
-	   </ssml:s>
-	 </dtbook>
-	 </ssml:root>
-      </x:document>
-    </x:expect>
-  </x:scenario>
-
-  <x:scenario label="two skippable types, two marks">
-    <x:call step="pxi:extract-skippable-wrapper">
-      <x:input port="source">
-	<x:document type="inline">
-	  <dtbook>
-	    <ssml:s id="s1">
-	      <span id="left1">left</span><pagenum id="pnum">1</pagenum><span id="right1">right</span>
-	      <span id="left2">left</span><noteref id="nref">1</noteref><span id="right2">right</span>
-	    </ssml:s>
-	  </dtbook>
-        </x:document>
-      </x:input>
-    </x:call>
-    <x:context label="result">
-      <x:document type="port" port="result"/>
-    </x:context>
-    <x:expect label="result" type="compare">
-      <x:document type="inline">
-	 <ssml:root>
-	   <dtbook>
-	     <ssml:s id="s1">
-	       <span id="left1">left</span><ssml:mark name="left1___right1"/><span id="right1">right</span>
-	       <span id="left2">left</span><ssml:mark name="left2___right2"/><span id="right2">right</span>
-	     </ssml:s>
-	   </dtbook>
-	   <dtbook>
-	     <ssml:s id="s1">
-	       <span id="left1"/><pagenum id="pnum">1</pagenum><span id="right1"/>
-	       <span id="left2"/><noteref id="nref">1</noteref><span id="right2"/>
-	     </ssml:s>
-	 </dtbook>
-	 </ssml:root>
-      </x:document>
-    </x:expect>
   </x:scenario>
 
 </x:description>

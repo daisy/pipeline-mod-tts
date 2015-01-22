@@ -64,8 +64,9 @@ public class TTSRegistry {
 			resources = mTTSResources.get(tts);
 		}
 		if (resources != null) {
-			ServerLogger.warn("Stopping bundle of " + TTSServiceUtil.displayName(tts)
-			        + " while a TTS job is running");
+			if (resources.size() > 0)
+				ServerLogger.warn("Stopping bundle of " + TTSServiceUtil.displayName(tts)
+				        + " while a TTS job is running");
 			for (TTSResource resource : resources) {
 				synchronized (resource) {
 					resource.invalid = true;

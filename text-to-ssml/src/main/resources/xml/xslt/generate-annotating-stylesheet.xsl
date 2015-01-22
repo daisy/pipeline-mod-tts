@@ -6,50 +6,102 @@
 
   <meta:namespace-alias stylesheet-prefix="xsl" result-prefix="meta"/>
 
-  <!-- Note: elements that do not contain any sentence and elements
-       not contained by any sentence will not be annotated. -->
+  <!-- Known limitations:
 
+   - Aural CSS is not properly moved when annotations are moved to other regions. Perhaps
+   we could move them inside a <span> holding the CSS properties
+
+   - If a sentence is bound to multiple annotations, resulting order may not be what the
+   user expects, though this is unlikely to happen. See flatten-structure.xsl for a more
+   accurate way of ordering annotations.
+
+   - MathML?
+
+  -->
   <meta:template match="/">
-    <xsl:stylesheet version="2.0" xmlns:ssml="http://www.w3.org/2001/10/synthesis" xmlns:tts="http://www.daisy.org/ns/pipeline/tts">
+    <xsl:stylesheet xmlns:ssml="http://www.w3.org/2001/10/synthesis"
+		    xmlns:tts="http://www.daisy.org/ns/pipeline/tts" version="2.0">
 
-      <!-- Map the before/after nodes to existing SSML sentences -->
+      <!-- Map the before/after nodes to existing nodes inside
+           sentences (or the SSML sentences themselves)-->
       <xsl:key name="before" match="tts:before" use="@id"/>
       <xsl:key name="after" match="tts:after" use="@id"/>
+      <xsl:key name="clips" match="*[@id]" use="@id"/>
 
       <xsl:variable name="mapping">
 	<tts:map>
 	  <xsl:for-each select="//*">
-	    <xsl:variable name="lang" select="current()/ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
+	    <xsl:variable name="lang" select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
 	    <xsl:variable name="short-lang" select="tokenize($lang, '-')[1]"/>
 	    <xsl:variable name="annotations">
 	      <xsl:apply-templates select="current()"/>
 	    </xsl:variable>
+
 	    <xsl:if test="$annotations/*">
-	      <xsl:variable name="translated-annot" select="$annotations//*[@xml:lang = $lang or @xml:lang=$short-lang][1]"/>
-	      <xsl:variable name="parent-sent" select="current()/ancestor-or-self::ssml:s[@id]"/>
+	      <xsl:variable name="translated-annot"
+			    select="$annotations/descendant-or-self::*[@xml:lang=$lang or @xml:lang=$short-lang][1]"/>
+	      <xsl:variable name="parent-sent" select="ancestor-or-self::ssml:s[1]"/>
+	      <xsl:variable name="translated-before" select="$translated-annot/tts:before/node()"/>
+	      <xsl:variable name="translated-after" select="$translated-annot/tts:after/node()"/>
 	      <xsl:choose>
 		<xsl:when test="$parent-sent">
 		  <tts:before>
-		    <xsl:attribute name="id"><xsl:value-of select="tts:mapping-id(current())"/></xsl:attribute>
-		    <xsl:sequence select="$translated-annot/*[local-name() = 'before']/node()"/>
+		    <xsl:attribute name="id">
+		      <xsl:value-of select="tts:mapping-id(current())"/>
+		    </xsl:attribute>
+		    <xsl:sequence select="$translated-before"/>
 		  </tts:before>
 		  <tts:after>
-		    <xsl:attribute name="id"><xsl:value-of select="tts:mapping-id(current())"/></xsl:attribute>
-		    <xsl:sequence select="$translated-annot/*[local-name() = 'after']/node()"/>
+		    <xsl:attribute name="id">
+		      <xsl:value-of select="tts:mapping-id(current())"/>
+		    </xsl:attribute>
+		    <xsl:sequence select="$translated-after"/>
 		  </tts:after>
 		</xsl:when>
 		<xsl:otherwise>
-		  <xsl:variable name="children-sent" select="current()/descendant::ssml:s[@id]"/>
-		  <xsl:if test="$children-sent">
-		    <tts:before>
-		      <xsl:attribute name="id"><xsl:value-of select="$children-sent[1]/@id"/></xsl:attribute>
-		      <xsl:sequence select="$translated-annot/*[local-name() = 'before']/node()"/>
-		  </tts:before>
-		  <tts:after>
-		    <xsl:attribute name="id"><xsl:value-of select="$children-sent[last()]/@id"/></xsl:attribute>
-		    <xsl:sequence select="$translated-annot/*[local-name() = 'after']/node()"/>
-		  </tts:after>
-		  </xsl:if>
+		  <xsl:variable name="children-sents" select="descendant::ssml:s"/>
+		  <xsl:choose>
+		    <xsl:when test="$children-sents">
+		      <tts:before>
+			<xsl:attribute name="id">
+			  <xsl:value-of select="$children-sents[1]/@id"/>
+			</xsl:attribute>
+			<xsl:sequence select="$translated-before"/>
+		      </tts:before>
+		      <tts:after>
+			<xsl:attribute name="id">
+			  <xsl:value-of select="$children-sents[last()]/@id"/>
+			</xsl:attribute>
+			<xsl:sequence select="$translated-after"/>
+		      </tts:after>
+		    </xsl:when>
+		    <xsl:otherwise>
+		      <xsl:variable name="prev-sent" select="preceding::ssml:s[1]"/>
+		      <xsl:variable name="next-sent" select="following::ssml:s[1]"/>
+		      <xsl:if test="$prev-sent">
+			<!-- Here we encounter an important limitation: if there is no
+			     sentence before, the current annotation will never be
+			     inserted. It occurs at the beginning of the document and when
+			     skippable elements follow each other without text in
+			     between. For MathML, we could try inserting the annotation
+			     using <mtext> nodes. -->
+			<tts:after>
+			  <xsl:attribute name="id">
+			    <xsl:value-of select="$prev-sent/@id"/>
+			  </xsl:attribute>
+			  <xsl:sequence select="$translated-before"/>
+			</tts:after>
+		      </xsl:if>
+		      <xsl:if test="$next-sent">
+			<tts:before>
+			  <xsl:attribute name="id">
+			    <xsl:value-of select="$next-sent/@id"/>
+			  </xsl:attribute>
+			  <xsl:sequence select="$translated-after"/>
+			</tts:before>
+		      </xsl:if>
+		    </xsl:otherwise>
+		  </xsl:choose>
 		</xsl:otherwise>
 	      </xsl:choose>
 	    </xsl:if>
@@ -59,7 +111,9 @@
 
       <!-- Insert the text thanks to the mapping -->
       <xsl:template match="/">
-	<xsl:apply-templates select="node()" mode="insert-text"/>
+	<xsl:copy>
+	  <xsl:apply-templates select="node()" mode="insert-text"/>
+	</xsl:copy>
       </xsl:template>
 
       <xsl:template match="*" mode="insert-text" priority="2">

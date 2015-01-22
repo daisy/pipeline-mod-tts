@@ -19,7 +19,7 @@ import org.xml.sax.SAXException;
 
 import com.xmlcalabash.util.TreeWriter;
 
-public class MarkSplitTest {
+public class GenericMarkSplitterTest {
 	static Processor Proc = new Processor(false);
 	static SSMLMarkSplitter Splitter = new DefaultSSMLMarkSplitter(Proc);
 	static String SsmlNs = "http://www.w3.org/2001/10/synthesis";

@@ -14,6 +14,7 @@
     <p:input port="fileset.in" sequence="false"/>
     <p:input port="content.in" primary="true" sequence="false"/>
     <p:input port="sentence-ids" sequence="false"/>
+    <p:input port="skippable-ids"/>
     <p:input port="config"/>
 
     <p:output port="result" primary="true" sequence="true">
@@ -27,6 +28,12 @@
     <p:import href="http://www.daisy.org/pipeline/modules/tts-helpers/library.xpl"/>
 
     <p:variable name="dc-lang" select="//meta[@name='dc:Language']/@content"/>
+
+    <px:get-tts-lexicons name="user-lexicons">
+      <p:input port="config">
+	<p:pipe port="config" step="main"/>
+      </p:input>
+    </px:get-tts-lexicons>
 
     <px:get-tts-annotations content-type="application/x-dtbook+xml" name="get-config-annot">
       <p:input port="config">
@@ -72,16 +79,16 @@
       <p:input port="sentence-ids">
 	<p:pipe port="sentence-ids" step="main"/>
       </p:input>
-      <p:input port="config">
-	<p:pipe port="config" step="main"/>
+      <p:input port="skippable-ids">
+	<p:pipe port="skippable-ids" step="main"/>
+      </p:input>
+      <p:input port="user-lexicons">
+	<p:pipe port="result" step="user-lexicons"/>
       </p:input>
       <p:input port="annotations">
 	<p:pipe port="result" step="get-annotations"/>
       </p:input>
-      <p:with-option name="section-elements" select="'level,level1,level2,level3'"/>
       <p:with-option name="word-element" select="'w'"/>
-      <p:with-option name="separate-skippable" select="$separate-skippable"/>
-      <p:with-option name="skippable-elements" select="'annoref,linenum,pagenum,noteref'"/>
       <p:with-option name="lang" select="if ($dc-lang) then $dc-lang else 'en'"/>
     </px:text-to-ssml>
 

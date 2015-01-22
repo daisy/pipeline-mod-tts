@@ -272,6 +272,9 @@ public class TextToPcmThread implements FormatSpecifications {
 				}
 				result = Iterables.concat(result, buffers);
 			}
+			
+			//add an empty ending-mark
+			marks.add(new Mark(tts.endingMark(), 0));
 
 			return result;
 		}
@@ -381,9 +384,7 @@ public class TextToPcmThread implements FormatSpecifications {
 		}
 
 		//check validity of the result by using the ending mark
-		if (tts.endingMark() != null
-		        && v.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED
-		        && !(marks.size() > 0 && tts.endingMark().equals(
+		if (marks.size() == 0 || (tts.endingMark() != null && !tts.endingMark().equals(
 		                marks.get(marks.size() - 1).name))) {
 			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
 
@@ -462,6 +463,7 @@ public class TextToPcmThread implements FormatSpecifications {
 		}
 
 		if (marks.size() > 0) {
+			//remove the ending mark
 			marks = marks.subList(0, marks.size() - 1);
 		}
 

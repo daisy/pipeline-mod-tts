@@ -67,6 +67,8 @@
   <p:import href="http://www.daisy.org/pipeline/modules/ssml-to-audio/library.xpl" />
   <p:import href="http://www.daisy.org/pipeline/modules/dtbook-to-ssml/library.xpl" />
   <p:import href="http://www.daisy.org/pipeline/modules/dtbook-break-detection/library.xpl"/>
+  <p:import href="http://www.daisy.org/pipeline/modules/daisy3-utils/library.xpl"/>
+  <p:import href="http://www.daisy.org/pipeline/modules/tts-helpers/library.xpl"/>
 
   <!-- Find the sentences and the words, even if the Text-To-Speech is off. -->
   <p:for-each name="lexing">
@@ -75,13 +77,20 @@
            only one DTBook. -->
       <p:pipe port="content.in" step="main"/>
     </p:iteration-source>
-    <p:output port="result">
-      <p:pipe port="result" step="break"/>
-    </p:output>
+    <p:output port="result" primary="true"/>
     <p:output port="sentence-ids">
       <p:pipe port="sentence-ids" step="break"/>
     </p:output>
+    <p:output port="skippable-ids">
+      <p:pipe port="skippable-ids" step="isolate-skippable"/>
+    </p:output>
     <px:dtbook-break-detect name="break"/>
+    <px:isolate-daisy3-skippable name="isolate-skippable">
+      <p:input port="sentence-ids">
+	<p:pipe port="sentence-ids" step="break"/>
+      </p:input>
+      <p:with-option name="id-prefix" select="concat('i', p:iteration-position())"/>
+    </px:isolate-daisy3-skippable>
   </p:for-each>
 
   <p:choose name="synthesize">
@@ -106,9 +115,15 @@
 	<p:output port="ssml.out" primary="true" sequence="true">
 	  <p:pipe port="result" step="ssml-gen"/>
 	</p:output>
-	<p:split-sequence name="sentences">
+	<p:split-sequence name="sentence-ids">
 	  <p:input port="source">
 	    <p:pipe port="sentence-ids" step="lexing"/>
+	  </p:input>
+	  <p:with-option name="test" select="concat('position()=', p:iteration-position())"/>
+	</p:split-sequence>
+	<p:split-sequence name="skippable-ids">
+	  <p:input port="source">
+	    <p:pipe port="skippable-ids" step="lexing"/>
 	  </p:input>
 	  <p:with-option name="test" select="concat('position()=', p:iteration-position())"/>
 	</p:split-sequence>
@@ -117,7 +132,10 @@
 	    <p:pipe port="current" step="for-each.content"/>
 	  </p:input>
 	  <p:input port="sentence-ids">
-	    <p:pipe port="matched" step="sentences"/>
+	    <p:pipe port="matched" step="sentence-ids"/>
+	  </p:input>
+	  <p:input port="skippable-ids">
+	    <p:pipe port="matched" step="skippable-ids"/>
 	  </p:input>
 	  <p:input port="fileset.in">
 	    <p:pipe port="fileset.in" step="main"/>

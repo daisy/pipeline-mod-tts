@@ -10,4 +10,5 @@
   <nextCatalog catalog="org:daisy:pipeline:modules:common-utils"/>
   <nextCatalog catalog="org:daisy:pipeline:modules:fileset-utils"/>
   <nextCatalog catalog="org:daisy:pipeline:modules:tts-helpers"/>
+  <!-- <nextCatalog catalog="org:daisy:pipeline:modules:mathml-to-ssml"/> -->
 </catalog>

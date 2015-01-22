@@ -48,6 +48,7 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	private AudioBufferTracker mAudioBufferTracker;
 	private URIResolver mURIresolver;
 	private String mOutputDirOpt;
+	private int mSentenceCounter = 0;
 
 	private static String convertSecondToString(double seconds) {
 		int iseconds = (int) (Math.floor(seconds));
@@ -119,6 +120,10 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 	public void traverse(XdmNode node, SSMLtoAudio pool) throws SynthesisException {
 		if (SentenceTag.equals(node.getNodeName())) {
 			pool.dispatchSSML(node);
+			if (++mSentenceCounter % 10 == 0){
+				pool.endSection();
+				mSentenceCounter = 0;
+			}
 		} else {
 			XdmSequenceIterator iter = node.axisIterator(Axis.CHILD);
 			while (iter.hasNext()) {
@@ -254,6 +259,8 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 					xmlLog.addStartElement(LogSsmlTag);
 					xmlLog.addSubtree(le.getSSML());
 					xmlLog.addEndElement();
+				}else{
+					xmlLog.addText("No SSML available. This piece of text has probably been extracted from inside another sentence.");
 				}
 
 				if (le.getTTSinput() != null && !le.getTTSinput().isEmpty()) {

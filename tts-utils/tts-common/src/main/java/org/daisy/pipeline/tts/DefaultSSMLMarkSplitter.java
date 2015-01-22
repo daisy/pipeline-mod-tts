@@ -110,6 +110,6 @@ public class DefaultSSMLMarkSplitter implements SSMLMarkSplitter {
 		}
 	}
 
-	private static final QName markNode = new QName(null, "mark");
-	private static final QName markNameAttr = new QName(null, "name");
+	private static final QName markNode = new QName("mark");
+	private static final QName markNameAttr = new QName("name");
 }

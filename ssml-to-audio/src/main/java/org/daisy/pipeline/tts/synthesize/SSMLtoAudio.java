@@ -29,9 +29,9 @@ import org.daisy.common.xslt.XslTransformCompiler;
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.audio.AudioServices;
 import org.daisy.pipeline.tts.AudioBufferTracker;
-import org.daisy.pipeline.tts.DefaultSSMLMarkSplitter;
 import org.daisy.pipeline.tts.SSMLMarkSplitter;
 import org.daisy.pipeline.tts.StraightBufferAllocator;
+import org.daisy.pipeline.tts.StructuredSSMLSplitter;
 import org.daisy.pipeline.tts.TTSEngine;
 import org.daisy.pipeline.tts.TTSRegistry;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
@@ -56,9 +56,9 @@ import com.google.common.collect.Iterables;
  * ContiguousText. Every section contains a list of contiguous sentences that
  * may be eventually stored into different audio files, but it is guaranteed
  * that such audio files won't contain sentences of other sections in such a
- * manner that the list of audio files will mirror the document order. Every
- * sentence has the same single sample rate to prevent us from resampling the
- * audio data before sending them to encoders.
+ * manner that the list of audio files will mirror the document order. Within
+ * a section, every sentence has the same single sample rate to prevent us from
+ * resampling the audio data before sending them to encoders.
  * 
  * Once all the sentences have been assigned to TTS voices, they are sorted by
  * size and stored in a shared queue of ContiguousText (actually, only the
@@ -443,7 +443,7 @@ public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 	        throws SynthesisException, InterruptedException {
 
 		//SSML mark splitter shared by the threads:
-		SSMLMarkSplitter ssmlSplitter = new DefaultSSMLMarkSplitter(mProc);
+		SSMLMarkSplitter ssmlSplitter = new StructuredSSMLSplitter(mProc);
 
 		reorganizeSections();
 		mProgress = 0;
@@ -581,6 +581,8 @@ public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		mLogger.printInfo("Number of synthesizable TTS sections: " + sectionCount);
 	}
 
+	//we can dispense with this function as soon as we take into consideration the size of the SSML
+	//sentences, rather than creating a new section every 10 sentences or so.
 	private void splitSection(ContiguousText section, int maxSize,
 	        List<ContiguousText> newSections) {
 		int left = 0;

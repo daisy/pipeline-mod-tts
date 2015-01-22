@@ -7,7 +7,7 @@
 	       xmlns:d="http://www.daisy.org/ns/pipeline/data"
 	       xmlns:pxi="http://www.daisy.org/ns/pipeline/xproc/internal"
 	       xmlns:tmp="http://www.daisy.org/ns/pipeline/tts"
-               script="../../main/resources/xml/xproc/styled-text-to-ssml.xpl">
+               script="../../main/resources/xml/xproc/text-to-ssml.xpl">
 
   <x:script>
     <p:declare-step version="1.0" name="main"
@@ -39,7 +39,7 @@
 	</p:input>
       </p:xslt>
       <!-- It doesn't matter if token's attributes are kept or not: -->
-      <p:delete match="ssml:token/@*[namespace-uri() != 'http://www.daisy.org/ns/pipeline/tmp']"/>
+      <p:delete match="ssml:token/@*[namespace-uri() != 'http://www.daisy.org/ns/pipeline/tts']"/>
     </p:declare-step>
   </x:script>
 
@@ -151,7 +151,5 @@
       </x:document>
     </x:expect>
   </x:scenario>
-
-
 
 </x:description>

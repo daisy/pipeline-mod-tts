@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:xs="http://www.w3.org/2001/XMLSchema"
     xmlns:pls="http://www.w3.org/2005/01/pronunciation-lexicon"
@@ -10,34 +9,30 @@
 
   <xsl:import href="get-lookahead.xsl"/>
 
+  <xsl:variable name="lexicons" select="collection()[2][1]"/>
+
   <xsl:key name="pronunciation" match="pls:lexeme"
 	   use="concat(ancestor::pls:lexicon/@xml:lang, lower-case(string-join(pls:grapheme/text(),'')))" />
 
-  <xsl:template match="/*">
-    <xsl:copy>
-      <xsl:copy-of select="@*"/>
-      <xsl:apply-templates select="//ssml:speak" mode="speak"/>
-    </xsl:copy>
-  </xsl:template>
-
   <!-- default behaviour: copy everything -->
-  <xsl:template match="@*|node()" mode="speak" priority="1">
+  <xsl:template match="@*|node()" priority="1">
     <xsl:copy>
-      <xsl:apply-templates select="@*|node()" mode="speak"/>
+      <xsl:apply-templates select="@*|node()"/>
     </xsl:copy>
   </xsl:template>
 
-  <xsl:template match="ssml:token" mode="speak" priority="2">
+  <xsl:template match="ssml:token" priority="2">
     <xsl:copy>
       <xsl:copy-of select="@*"/>
 
       <!-- get the corresponding lexeme if it exists, depending on the language -->
-      <xsl:variable name="pr" select="key('pronunciation',
-				      concat(ancestor-or-self::*[@xml:lang][1]/@xml:lang, lower-case(string-join(text(),''))),
-				      collection()[/tmp:lexicons])[1]"/>
+      <xsl:variable name="lang" select="ancestor-or-self::*[@xml:lang][1]/@xml:lang"/>
+      <xsl:variable name="pr"
+		    select="key('pronunciation',
+			    concat($lang, lower-case(string-join(text(),''))), $lexicons)"/>
       <xsl:choose>
 	<xsl:when test="not($pr)">
-	  <xsl:apply-templates select="node()" mode="speak"/>
+	  <xsl:apply-templates select="node()"/>
 	</xsl:when>
 	<xsl:otherwise>
 	  <xsl:variable name="ok-look-ahead" as="xs:boolean">
@@ -62,14 +57,14 @@
 		<xsl:attribute name="alphabet">
 		  <xsl:value-of select="$pr/ancestor::pls:lexicon/@alphabet"/>
 		</xsl:attribute>
-		<xsl:apply-templates select="node()" mode="speak"/>
+		<xsl:apply-templates select="node()"/>
 	      </ssml:phoneme>
 	    </xsl:when>
 	    <xsl:when test="count($pr/pls:alias) = 1 and $ok-look-ahead">
 	      <xsl:value-of select="$pr/pls:alias/text()"/>
 	    </xsl:when>
 	    <xsl:otherwise>
-	      <xsl:apply-templates select="node()" mode="speak"/>
+	      <xsl:apply-templates select="node()"/>
 	    </xsl:otherwise>
 	  </xsl:choose>
 	</xsl:otherwise>
