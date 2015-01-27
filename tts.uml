@@ -1,30 +1,41 @@
 @startuml
 
-(*) -->[enriched dtbook + sentence ids] "dtbook-to-ssml (XPL)"
--->[enriched dtbook + sentence ids] "make dtbook-specific transformations (XPL)"
+(*) -->[enriched dtbook + sentence ids + skippable ids] "dtbook-to-ssml (XPL)"
+-->[enriched dtbook + sentence ids + skippable ids] "make dtbook-specific transformations (XProc)"
 
-partition "Generic text-to-ssml" {
+partition "Generic text-to-ssml (XProc)" {
 
--->[enriched dtbook + sentence ids + dtbook parameters] "inline CSS (Java)"
--->[dtbook with tmp CSS properties] "separate pagenums/noterefs from the\nrest and add SSML marks, extract MathML (XPL)"
--->[pagenum-free document + pagenum document + MathML document] ===B1===
+-->[dtbook + sentence ids + dtbook parameters] "insert SSML sentences and tokens"
+-->[dtbook mixed with SSML] "add user's annotations (text around elts)"
+-->[dtbook mixed with SSML] "project CSS onto sentences"
+-->[list of dtbook-SSML sentences + skippable ids] "extract skippable elements and insert SSML marks"
+-->[.] ===B1===
 
-===B1=== -->[pagenum document] "group pagenums with similar CSS properties\n(for future thread dispatch)(XPL)"
--->[pagenum document with groups] "[A]convert CSS to SSML (XPL)"
--->[SSML files] ==B2==
+===B1=== -->[skippable-only sentences] "[A] extract MathML"
+--> ===B3===
 
-===B1=== -->[pagenum-free document] "group sentences of the same\nsection (for future thread dispatch)(XPL)"
--->[pagenum-free document with groups] "[B]convert CSS to SSML (XPL)"
--->[SSML files] "Make substitutions with PLS lexicons (XPL)"
--->[SSML files] ===B2===
+===B3=== -->[.] "group skippable elements"
+-->[.] "[B]convert CSS to SSML"
+-->[SSML file] ==B2==
 
-===B1=== ..>[MathML] "[C]convert CSS to SSML (XPL)"
-..>[MathML] "Convert MathML to SSML (XPL)"
-..>[SSML file] ===B2===
+===B1=== -->[skippable-free sentences] "[B] extract MathML"
+--> ===B4===
+
+===B4=== -->[.] "[A]convert CSS to SSML"
+-->[.] "Make substitutions with lexicons"
+-->[.] "Remove anything outside tokens"
+-->[SSML file] ===B2===
+
+===B4=== -->[MathML] "MathML to SSML"
+===B3=== -->[MathML] "MathML to SSML"
+-->[.] "[C] convert CSS to SSML"
+-->[SSML file] ===B2===
+
+===B2=== -->[SSML files] "Reorder in document order"
+
 }
 
-==B2==-->[SSML files] "ssml-to-audio (Java)"
-
+-->[SSML file(s)] "ssml-to-audio (Java)"
 -->[Map of @id to audio files] "dtbook-to-epub3"
 
 @enduml
