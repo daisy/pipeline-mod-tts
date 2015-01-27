@@ -1,41 +1,68 @@
 @startuml
 
-"[A] dtbook-to-daisy3" -->[enriched dtbook + sentence ids + skippable ids] "dtbook-to-ssml (XProc)"
--->[enriched dtbook + sentence ids + skippable ids] "make dtbook-specific transformations (XProc)"
+(*) --> "[A] dtbook-to-daisy3"
 
-partition "Generic text-to-ssml (XProc)" {
+partition "dtbook-tts module" {
 
--->[dtbook + sentence ids + dtbook parameters] "insert SSML sentences and tokens"
--->[dtbook mixed with SSML] "add user's annotations (text around elts)"
--->[dtbook mixed with SSML] "project CSS onto sentences"
--->[list of dtbook-SSML sentences + skippable ids] "extract skippable elements and insert SSML marks"
+partition "not in pipelind-mod-tts (XProc&Java)" {
+-->[dtbook] "dtbook-break-detection [pipeline-mod-nlp]"
+-->[dtbook + sentence ids] "isolate skippable elements [daisy3-utils]"
+}
+
+-->[dtbook] "make dtbook-specific transformations (XProc&XSLT)"
+
+partition "text-to-ssml module with dtbook parameters (full XProc&XSLT)" {
+
+-->[dtbook] "add user's annotations (i.e. text around elts)"
+"dtbook-break-detection [pipeline-mod-nlp]"-->[sentence ids] "add user's annotations (i.e. text around elts)"
+
+-->[dtbook + sentence ids] "insert SSML sentences and tokens"
+
+-->[.] "save document order"
+
+"insert SSML sentences and tokens"-->[dtbook mixed with SSML] "project CSS onto sentences"
+
+-->[list of dtbook-SSML sentences] "extract skippable elts and insert SSML marks"
+"isolate skippable elements [daisy3-utils]"-->[skippable ids] "extract skippable elts and insert SSML marks"
+
 -->[.] ===B1===
 
 ===B1=== -->[skippable-only sentences] "[A] extract MathML"
 --> ===B3===
 
-===B3=== -->[.] "group skippable elements"
+partition "Skippable Elts Branch" {
+===B3=== -->[.] "group skippable elts\n using SSML marks"
 -->[.] "[B]convert CSS to SSML"
+}
 -->[SSML file] ==B2==
 
 ===B1=== -->[skippable-free sentences] "[B] extract MathML"
 --> ===B4===
 
+partition "Main Branch" {
 ===B4=== -->[.] "[A]convert CSS to SSML"
 -->[.] "Make substitutions with lexicons"
 -->[.] "Remove anything outside tokens"
+}
 -->[SSML file] ===B2===
 
-===B4=== -->[MathML] "MathML to SSML"
-===B3=== -->[MathML] "MathML to SSML"
+partition "Math Branch" {
+===B4=== -->[.] "MathML to SSML"
+===B3=== -->[.] "MathML to SSML"
 -->[.] "[C] convert CSS to SSML"
+}
 -->[SSML file] ===B2===
 
 ===B2=== -->[SSML files] "Reorder in document order"
+"save document order" -->[order] "Reorder in document order"
 
 }
 
 -->[SSML file(s)] "ssml-to-audio (Java)"
--->[Map of @id to audio files] "[B] dtbook-to-daisy3"
+
+}
+
+
+-->[map of @id to audio files + enriched dtbook] "[B] dtbook-to-daisy3"
 
 @enduml

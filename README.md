@@ -10,10 +10,10 @@ TTS-based production modules for the DAISY Pipeline 2
 
 CSS inlining is performed on the input documents, while NLP and TTS tasks are always performed on the output documents. For instance, in the dtbook-to-epub3 script, CSS is inlined in the DTBook document while NLP and TTS are run on the HTML files.
 This is so because:
-- We don't want to risk losing @ids in the process of converting DTBook to Epub3. @ids are our only links to audio clips.
-- Some new text might be generated during the conversion, e.g. "table of contents"
-- Some text might be moved apart without their surrounding structure, which may include @id
-- Although it would be way simpler to also apply CSS on the output documents, the user is only fully aware of the input document, so it makes sense for him/her to write a stylesheet targeted for the input. CSS information is carried by special attributes.
+- We don't want to risk losing @id's in the process of converting DTBook to Epub3. @id's are our only links to audio clips ;
+- Some new text might have been generated during the conversion, e.g. "table of contents" ;
+- Some text might have been moved apart without their surrounding structure, which may include @id's ;
+- Although it would be way simpler to also apply CSS on the output documents, users are only fully aware of the input document, so it makes sense for them to write a stylesheet targeted for the input. CSS information is carried by special attributes that hopefully won't be discarded during the conversions.
 
 At the end, the TTS step returns a list of audio clips such as this one:
 
@@ -39,7 +39,16 @@ The text to SSML conversion is done in XProc. The CSS inlining and the conversio
 
 [plantuml source](tts.uml)
 
-Note that if a sentence contains nothing more than a single skippable element, the skippable element won't be extracted and will be treated as a regular sentence inside the skippable-free document, except for MathML elements.
+Note that if a sentence contains nothing more than a single skippable element, the skippable element won't be extracted and will be treated as a regular sentence inside the skippable-free document.
+
+After the step "project CSS onto sentences", the XML transferred from one transformation to another always looks like:
+
+```xml
+<speak version="1.1" xmlns="http://www.w3.org/2001/10/synthesis">
+       <s id="fj73d78f">...</s>
+       <s id="fd998h3m">...</s>
+</speak>
+```
 
 ### SSML Partitioning
 
@@ -51,11 +60,11 @@ Once the SSML sentences are gathered in packets, packets are ordered in such a m
 
 ### Multi-threading and memory management
 
-There are threads for synthesizing text and other threads for the audio encoding. Separating tasks has the advantage of speeding up a bit some adapters such as Acapela's. In the Acapela adapter, a TCP channel is opened for each thread, but Acapela's licenses set a limit of speed for every channel (i.e. the output rate in bytes). So either we open, initialize and close channels for every request sent to Acapela's server, or we let the channels open but we make sure to keep them busy so that we never find ourselves not using the maximum rate that Acapela granted us, as when we are encoding audio. In that way, threads dedicated to synthesizing get close to the speed limit.
+There are threads for synthesizing text and other threads for the audio encoding. Separating tasks has the advantage of speeding up a bit some adapters such as Acapela's. In the Acapela adapter, a TCP channel is opened for each thread, but Acapela's licenses set a limit of speed for every channel (i.e. an output rate in bytes per TCP socket). So either we open, initialize and close channels for every request sent to Acapela's server, or we let the channels open but we make sure to keep them busy so that we never find ourselves not using the maximum rate that Acapela granted us, as when we are encoding audio. In that way, threads dedicated to synthesizing get close to the speed limit.
 
 The drawback of this method, by contrast to synthesizing and encoding in the same threads, is that it may lead to memory overflows if the encoding threads are slower than the synthesizing ones. To address this problem, the size of the audio queue is limited by the permits of a semaphore, which is shared by all the running jobs.
 
-Yet there can remain memory issues if all the synthesizing threads wait for the semaphore at the same time with their buffer full of audio. We can't use another semaphore to limit the production of PCM bytes because, if the threads reach the memory limit before reaching the flushing point -when they send their data to the encoding threads-, the encoding threads will starve. Instead, if the memory limit is reached, a custom memory exception is thrown, before an authentic OutOfMemoryError is thrown from an unexpected place. The exception doesn't stop the thread from trying to synthesize the next pieces of text.
+Yet there can remain memory issues if all the synthesizing threads wait for the semaphore at the same time with full audio buffers. We can't use another semaphore to limit the production of audio buffers because, if the threads reach the memory limit before reaching the flushing point -when they send their data to the encoding threads-, the encoding threads will starve. Instead, if the memory limit is reached, a custom memory exception is thrown, before an authentic OutOfMemoryError is thrown from an unexpected place. The exception doesn't stop the thread from trying to synthesize the next pieces of text.
 
 Both mechanisms are handled by an AudioBufferAllocator that counts every byte allocated and deallocated.
 
@@ -74,9 +83,14 @@ When the TTS modules get the DTBook, some previous step should already have wrap
 <sent id="sent1"><span id="span1">begin</span><noteref id="ref1">note1</noteref><span id="span2">end</span></sent>"
 ```
 
-One of the first step of text-to-ssml is to replace the noteref with a SSML mark:
+And, if there are any annotations on <sent> and/or <noteref>, they will be inserted that way:
 ```xml
-<sent id="sent1"><span id="span1">begin</span><ssml:mark name="span1__span2"><span id="span2">end</span></sent>"
+<sent id="sent1">pre-annotation-of-sent1 <span id="span1">begin</span><noteref id="ref1">note1 post-annotation-of-note1</noteref><span id="span2">end</span></sent>"
+```
+
+Having said that, one of the first step of text-to-ssml is to replace the noteref with a SSML mark:
+```xml
+<sent id="sent1">pre-annotation-of-sent1 <span id="span1">begin</span><ssml:mark name="span1__span2"><span id="span2">end</span></sent>"
 ```
 
 The sentence can then be pronounced with the right prosody.
@@ -88,10 +102,11 @@ The mark's name contains information about where the sub-sentences begin and whe
    <clip idref="span2"/>
 </audio-clips>
 ```
+"pre-annotation-of-sent1" will belong to the first clip.
 
-The skippable elements are transferred from their host sentence to a separate document dedicated to them. In order to save resources, we group them together in long sentences such as this one:
+As for the the skippable elements, they are transferred from their host sentence to a separate document dedicated to them. In order to save resources, we group them together in long sentences such as this one:
 ```xml
-<ssml:s>note1<ssml:mark name="ref1__ref2">note2<ssml:mark name="ref2__ref3">note3</ssml:s>"
+<ssml:s>note1 post-annotation-of-note1<ssml:mark name="ref1__ref2">note2<ssml:mark name="ref2__ref3">note3</ssml:s>"
 ```
 
 Just as for regular sentences, ssml-to-audio will add three clips in the audio-map:
