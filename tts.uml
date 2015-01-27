@@ -1,6 +1,6 @@
 @startuml
 
-(*) -->[enriched dtbook + sentence ids + skippable ids] "dtbook-to-ssml (XPL)"
+"[A] dtbook-to-daisy3" -->[enriched dtbook + sentence ids + skippable ids] "dtbook-to-ssml (XProc)"
 -->[enriched dtbook + sentence ids + skippable ids] "make dtbook-specific transformations (XProc)"
 
 partition "Generic text-to-ssml (XProc)" {
@@ -36,6 +36,6 @@ partition "Generic text-to-ssml (XProc)" {
 }
 
 -->[SSML file(s)] "ssml-to-audio (Java)"
--->[Map of @id to audio files] "dtbook-to-epub3"
+-->[Map of @id to audio files] "[B] dtbook-to-daisy3"
 
 @enduml

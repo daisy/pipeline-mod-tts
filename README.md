@@ -55,7 +55,7 @@ There are threads for synthesizing text and other threads for the audio encoding
 
 The drawback of this method, by contrast to synthesizing and encoding in the same threads, is that it may lead to memory overflows if the encoding threads are slower than the synthesizing ones. To address this problem, the size of the audio queue is limited by the permits of a semaphore, which is shared by all the running jobs.
 
-Yet there can remain memory issues if all the synthesizing threads wait for the semaphore at the same time with their buffer full of audio. We can't use another semaphore to limit the production of PCM bytes because, if the threads reach the memory limit before reaching the flushing point -when they send their data to the encoding threads-, the encoding threads will starve. Instead, if the memory limit is reached, a custom memory exception is thrown, before it is thrown from some unsolicited place. The exception doesn't stop the thread from trying to synthesize the next pieces of text.
+Yet there can remain memory issues if all the synthesizing threads wait for the semaphore at the same time with their buffer full of audio. We can't use another semaphore to limit the production of PCM bytes because, if the threads reach the memory limit before reaching the flushing point -when they send their data to the encoding threads-, the encoding threads will starve. Instead, if the memory limit is reached, a custom memory exception is thrown, before an authentic OutOfMemoryError is thrown from an unexpected place. The exception doesn't stop the thread from trying to synthesize the next pieces of text.
 
 Both mechanisms are handled by an AudioBufferAllocator that counts every byte allocated and deallocated.
 
@@ -69,7 +69,7 @@ The voice-family CSS property allows users to specify which voice and TTS engine
 
 The skippable elements must be separated from their sentence so that the readers can disable them without damaging the prosody.
 
-When the TTS modules get the DTBook, some previous step should already have wrapped the text with span elements when there are skippable elements involved:
+When the TTS modules get the DTBook, some previous step should already have wrapped the text with span elements when there are skippable elements involved, e.g. a DTBook noteref:
 ```xml
 <sent id="sent1"><span id="span1">begin</span><noteref id="ref1">note1</noteref><span id="span2">end</span></sent>"
 ```
