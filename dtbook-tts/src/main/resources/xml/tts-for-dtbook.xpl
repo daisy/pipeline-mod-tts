@@ -164,4 +164,33 @@
     <px:remove-inline-css-speech/>
   </p:for-each>
 
+  <!-- Used only for debugging and works only with dynamic TTS
+       config. It could be moved to utils if we think it can be useful
+       to other formats. -->
+  <p:choose>
+    <p:xpath-context>
+      <p:pipe port="config" step="main"/>
+    </p:xpath-context>
+    <p:when test="//*[@key='report-coverage'and @value='true']">
+      <p:xslt>
+	<p:input port="source">
+	  <p:pipe port="result" step="remove-css"/>
+	  <p:pipe port="audio-map" step="synthesize"/>
+	</p:input>
+	<p:input port="stylesheet">
+	  <p:document href="report-coverage.xsl"/>
+	</p:input>
+	<p:input port="parameters">
+	  <p:empty/>
+	</p:input>
+      </p:xslt>
+      <p:store indent="true">
+	<p:with-option name="href" select="resolve-uri('tts-coverage.xml', $output-dir)"/>
+      </p:store>
+    </p:when>
+    <p:otherwise>
+      <p:sink/>
+    </p:otherwise>
+  </p:choose>
+
 </p:declare-step>
