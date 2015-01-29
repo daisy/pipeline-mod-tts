@@ -7,13 +7,17 @@
 	       xmlns:ssml="http://www.w3.org/2001/10/synthesis"
                script="../../main/resources/xml/xproc/annotate.xpl">
 
-
   <x:scenario label="Empty stylesheet">
     <x:call step="px:annotate">
       <x:input port="annotations"/>
       <x:input port="source">
   	<x:document type="inline">
   	  <dt:book/>
+  	</x:document>
+      </x:input>
+      <x:input port="sentence-ids">
+  	<x:document type="inline">
+	  <tts:sentence-ids/>
   	</x:document>
       </x:input>
       <x:context label="result">
@@ -27,7 +31,7 @@
     </x:call>
   </x:scenario>
 
-  <x:scenario label="Test">
+  <x:scenario label="Annotation Test">
     <x:call step="px:annotate">
       <x:input port="annotations">
 	<x:document type="inline">
@@ -52,6 +56,15 @@
 	      </tts:lang>
 	    </xsl:template>
 	  </xsl:stylesheet>
+	</x:document>
+      </x:input>
+      <x:input port="sentence-ids">
+	<x:document type="inline">
+	  <tts:sentence-ids>
+	    <tts:sentence id="s1"/>
+	    <tts:sentence id="s2"/>
+	    <tts:sentence id="s3"/>
+	  </tts:sentence-ids>
 	</x:document>
       </x:input>
     </x:call>

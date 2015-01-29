@@ -39,5 +39,6 @@
     <module>tts-utils/tts-adapter-sapinative</module>
     <module>tts-utils/tts-helpers</module>
     <module>zedai-to-ssml</module>
+    <module>mathml-to-ssml</module>
   </modules>
 </project>

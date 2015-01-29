@@ -32,7 +32,22 @@
     <xsl:value-of select="' '"/>
   </xsl:template>
 
-  <!-- Commented because it is only relevant forn old DTBooks: -->
+  <!-- Those elements can't have <w> in them according to the spec, so we add the <w> here -->
+  <xsl:template match="dt:pagenum|dt:noteref|dt:annoref|dt:linenum">
+    <xsl:copy>
+      <xsl:copy-of select="@*"/>
+      <xsl:choose>
+	<xsl:when test="count(*) = 0">
+	  <dt:w><xsl:copy-of select="text()"/></dt:w>
+	</xsl:when>
+	<xsl:otherwise>
+	  <xsl:copy-of select="node()"/>
+	</xsl:otherwise>
+      </xsl:choose>
+    </xsl:copy>
+  </xsl:template>
+
+  <!-- Commented because it is only relevant for old DTBooks: -->
   <!-- Wrap links with words in order to make sure they can be matched against lexicon entries. -->
   <!-- (provided that DTBook links cannot contain words, for old versions of the DTBook spec) -->
   <!-- <xsl:template match="dt:a"> -->

@@ -5,6 +5,7 @@
 
   <p:input port="source" primary="true"/>
   <p:input port="annotations" sequence="true"/>
+  <p:input port="sentence-ids"/>
   <p:output port="result" primary="true"/>
 
   <p:count>
@@ -35,6 +36,7 @@
       <p:xslt name="annotate">
 	<p:input port="source">
 	  <p:pipe port="source" step="main"/>
+	  <p:pipe port="sentence-ids" step="main"/>
 	</p:input>
 	<p:input port="stylesheet">
 	  <p:pipe port="result" step="generate-xslt"/>

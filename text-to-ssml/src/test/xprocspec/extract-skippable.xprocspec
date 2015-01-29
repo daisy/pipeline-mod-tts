@@ -24,11 +24,11 @@
       <x:call step="pxi:extract-skippable">
 	<x:input port="source">
 	  <x:document type="inline">
-	    <dtbook>
+	    <ssml:speak version="1.1">
 	      <ssml:s id="s1" tmp:css="something">
 		<span id="left">left</span><pagenum id="pnum">1</pagenum><span id="right">right</span>
 	      </ssml:s>
-	    </dtbook>
+	    </ssml:speak>
 	  </x:document>
 	</x:input>
       </x:call>
@@ -38,11 +38,11 @@
       </x:context>
       <x:expect label="skippable-separated" type="compare">
 	<x:document type="inline">
-	  <dtbook>
+	  <ssml:speak version="1.1">
 	    <ssml:s id="s1" tmp:css="something">
-	      <span id="left">left</span><ssml:mark name="left___right"/><span id="right">right</span>
+	      <span>left</span><ssml:mark name="left___right"/><span>right</span>
 	    </ssml:s>
-	  </dtbook>
+	  </ssml:speak>
 	  <ssml:speak version="1.1">
 	    <ssml:s id="holder-of-pnum" tmp:css="something">
 	      <pagenum id="pnum">1</pagenum>
@@ -56,7 +56,7 @@
       <x:call step="pxi:extract-skippable">
 	<x:input port="source">
 	  <x:document type="inline">
-	    <dtbook>
+	    <ssml:speak version="1.1">
 	      <ssml:s id="s1" tmp:css="something">
 		<span id="left">left</span>
 		<p>
@@ -66,7 +66,7 @@
 		</p>
 		<span id="right">right</span>
 	      </ssml:s>
-	    </dtbook>
+	    </ssml:speak>
 	  </x:document>
 	</x:input>
       </x:call>
@@ -76,11 +76,11 @@
       </x:context>
       <x:expect label="skippable-separated" type="compare">
 	<x:document type="inline">
-	  <dtbook>
+	  <ssml:speak version="1.1">
 	    <ssml:s id="s1" tmp:css="something">
-	      <span id="left">left</span><ssml:mark name="left___right"/><span id="right">right</span>
+	      <span>left</span><ssml:mark name="left___right"/><span>right</span>
 	    </ssml:s>
-	  </dtbook>
+	  </ssml:speak>
 	  <ssml:speak version="1.1">
 	    <ssml:s id="holder-of-pnum" tmp:css="something">
 	      <p>
@@ -98,11 +98,46 @@
       <x:call step="pxi:extract-skippable">
 	<x:input port="source">
 	  <x:document type="inline">
-	    <dtbook>
+	    <ssml:speak version="1.1">
 	      <ssml:s id="s1">
 		<span id="left">left</span><pagenum id="pnum">1</pagenum>
 	      </ssml:s>
-	    </dtbook>
+	    </ssml:speak>
+	  </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="skippable-free"/>
+	<x:document type="port" port="skippable-only"/>
+      </x:context>
+      <x:expect label="skippable-free" type="compare">
+	<x:document type="inline">
+	  <ssml:speak version="1.1">
+	    <ssml:s id="left">
+	      <span>left</span>
+	    </ssml:s>
+	  </ssml:speak>
+	  <ssml:speak version="1.1">
+	    <ssml:s id="holder-of-pnum">
+	      <pagenum id="pnum">1</pagenum>
+	    </ssml:s>
+	  </ssml:speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
+
+    <x:scenario label="two adjacent skippable elements">
+      <x:call step="pxi:extract-skippable">
+	<x:input port="source">
+	  <x:document type="inline">
+	    <ssml:speak version="1.1">
+	      <ssml:s id="s1">
+		<span id="left">left</span>
+		<pagenum id="pnum1">1</pagenum>
+		<pagenum id="pnum2">2</pagenum>
+		<span id="right">right</span>
+	      </ssml:s>
+	    </ssml:speak>
 	  </x:document>
 	</x:input>
       </x:call>
@@ -111,11 +146,13 @@
       </x:context>
       <x:expect label="skippable-free" type="compare">
 	<x:document type="inline">
-	  <dtbook>
+	  <ssml:speak version="1.1">
 	    <ssml:s id="s1">
-	      <span id="left">left</span><ssml:mark name="left___"/>
+              <span >left</span>
+              <ssml:mark name="left___right"/>
+              <span>right</span>
 	    </ssml:s>
-	  </dtbook>
+	  </ssml:speak>
 	</x:document>
       </x:expect>
     </x:scenario>
@@ -124,12 +161,12 @@
       <x:call step="pxi:extract-skippable">
     	<x:input port="source">
     	  <x:document type="inline">
-    	    <dtbook>
+    	    <ssml:speak version="1.1">
     	      <ssml:s id="s1">
     	    	<span id="left1">left</span><pagenum id="pnum1">1</pagenum><span id="right1">right</span>
     	    	<span id="left2">left</span><pagenum id="pnum2">2</pagenum><span id="right2">right</span>
     	      </ssml:s>
-    	    </dtbook>
+    	    </ssml:speak>
     	  </x:document>
     	</x:input>
       </x:call>
@@ -138,12 +175,12 @@
       </x:context>
       <x:expect label="result" type="compare">
     	<x:document type="inline">
-    	  <dtbook>
+    	  <ssml:speak version="1.1">
     	    <ssml:s id="s1">
-    	      <span id="left1">left</span><ssml:mark name="left1___right1"/><span id="right1">right</span>
-    	      <span id="left2">left</span><ssml:mark name="left2___right2"/><span id="right2">right</span>
+    	      <span>left</span><ssml:mark name="left1___right1"/><span>right</span>
+    	      <span>left</span><ssml:mark name="left2___right2"/><span>right</span>
     	    </ssml:s>
-    	  </dtbook>
+    	  </ssml:speak>
     	</x:document>
       </x:expect>
     </x:scenario>

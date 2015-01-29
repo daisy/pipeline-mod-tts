@@ -1,7 +1,8 @@
 <meta:stylesheet xmlns:meta="http://www.w3.org/1999/XSL/Transform"
 		 xmlns:xsl="anything-but-the-xsl-namespace"
 		 xmlns:tts="http://www.daisy.org/ns/pipeline/tts"
-		 xmlns:ssml="http://www.w3.org/2001/10/synthesis"
+		 xmlns:m="http://www.w3.org/1998/Math/MathML"
+		 xmlns:d="http://www.daisy.org/ns/pipeline/data"
 		 version="2.0">
 
   <meta:namespace-alias stylesheet-prefix="xsl" result-prefix="meta"/>
@@ -15,18 +16,18 @@
    user expects, though this is unlikely to happen. See flatten-structure.xsl for a more
    accurate way of ordering annotations.
 
-   - MathML?
-
   -->
   <meta:template match="/">
-    <xsl:stylesheet xmlns:ssml="http://www.w3.org/2001/10/synthesis"
-		    xmlns:tts="http://www.daisy.org/ns/pipeline/tts" version="2.0">
+    <xsl:stylesheet xmlns:tts="http://www.daisy.org/ns/pipeline/tts" version="2.0">
 
-      <!-- Map the before/after nodes to existing nodes inside
-           sentences (or the SSML sentences themselves)-->
+      <!-- Map the before/after nodes to existing nodes inside sentences, or to the
+           sentences themselves-->
       <xsl:key name="before" match="tts:before" use="@id"/>
       <xsl:key name="after" match="tts:after" use="@id"/>
       <xsl:key name="clips" match="*[@id]" use="@id"/>
+      <xsl:key name="sentences" match="*[@id]" use="@id"/>
+
+      <xsl:variable name="sentence-ids" select="collection()[2]"/>
 
       <xsl:variable name="mapping">
 	<tts:map>
@@ -40,7 +41,7 @@
 	    <xsl:if test="$annotations/*">
 	      <xsl:variable name="translated-annot"
 			    select="$annotations/descendant-or-self::*[@xml:lang=$lang or @xml:lang=$short-lang][1]"/>
-	      <xsl:variable name="parent-sent" select="ancestor-or-self::ssml:s[1]"/>
+	      <xsl:variable name="parent-sent" select="ancestor-or-self::*[@id and key('sentences', @id, $sentence-ids)][1]"/>
 	      <xsl:variable name="translated-before" select="$translated-annot/tts:before/node()"/>
 	      <xsl:variable name="translated-after" select="$translated-annot/tts:after/node()"/>
 	      <xsl:choose>
@@ -59,7 +60,7 @@
 		  </tts:after>
 		</xsl:when>
 		<xsl:otherwise>
-		  <xsl:variable name="children-sents" select="descendant::ssml:s"/>
+		  <xsl:variable name="children-sents" select="descendant::*[@id and key('sentences', @id, $sentence-ids)]"/>
 		  <xsl:choose>
 		    <xsl:when test="$children-sents">
 		      <tts:before>
@@ -76,15 +77,14 @@
 		      </tts:after>
 		    </xsl:when>
 		    <xsl:otherwise>
-		      <xsl:variable name="prev-sent" select="preceding::ssml:s[1]"/>
-		      <xsl:variable name="next-sent" select="following::ssml:s[1]"/>
+		      <xsl:variable name="prev-sent" select="preceding::*[@id and key('sentences', @id, $sentence-ids)][1]"/>
+		      <xsl:variable name="next-sent" select="following::*[@id and key('sentences', @id, $sentence-ids)][1]"/>
 		      <xsl:if test="$prev-sent">
 			<!-- Here we encounter an important limitation: if there is no
 			     sentence before, the current annotation will never be
 			     inserted. It occurs at the beginning of the document and when
 			     skippable elements follow each other without text in
-			     between. For MathML, we could try inserting the annotation
-			     using <mtext> nodes. -->
+			     between.  -->
 			<tts:after>
 			  <xsl:attribute name="id">
 			    <xsl:value-of select="$prev-sent/@id"/>
@@ -113,6 +113,22 @@
       <xsl:template match="/">
 	<xsl:copy>
 	  <xsl:apply-templates select="node()" mode="insert-text"/>
+	</xsl:copy>
+      </xsl:template>
+
+      <xsl:template match="m:*" mode="insert-text" priority="3">
+	<xsl:variable name="id" select="tts:mapping-id(.)"/>
+	<xsl:variable name="before" select="key('before', $id, $mapping)"/>
+	<xsl:variable name="after" select="key('after', $id, $mapping)"/>
+	<xsl:copy>
+	  <xsl:copy-of select="@*"/>
+	  <xsl:if test="$before">
+	    <m:text><xsl:copy-of select="string-join($before//text(), ' ')"/></m:text>
+	  </xsl:if>
+	  <xsl:apply-templates select="node()" mode="insert-text"/>
+	  <xsl:if test="$after">
+	    <m:text><xsl:copy-of select="string-join($after//text(), ' ')"/></m:text>
+	  </xsl:if>
 	</xsl:copy>
       </xsl:template>
 

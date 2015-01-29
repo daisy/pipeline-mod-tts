@@ -4,6 +4,7 @@
 		xmlns:pxi="http://www.daisy.org/ns/pipeline/xproc/internal"
 		xmlns:ssml="http://www.w3.org/2001/10/synthesis"
 		xmlns:tts="http://www.daisy.org/ns/pipeline/tts"
+		xmlns:m="http://www.w3.org/1998/Math/MathML"
 		exclude-inline-prefixes="#all">
 
   <p:documentation>
@@ -31,16 +32,8 @@
     <p:empty/>
   </p:input>
 
-  <!-- TODO: make a step that reordrers the SSML so that MathML
-       formulas will be properly located. We can store the @ids of the
-       input book in document order and then use that information to
-       put everything back to order.-->
-
   <p:output port="result" sequence="true" primary="true">
     <p:documentation>The SSML output.</p:documentation>
-    <p:pipe port="result" step="clean-doc"/>
-    <p:pipe port="result" step="ssml-of-skippable"/>
-    <!-- <p:pipe port="result" step="mathml-to-ssml"/> -->
   </p:output>
 
   <p:option name="word-element" required="true">
@@ -56,13 +49,29 @@
 
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
   <p:import href="http://www.daisy.org/pipeline/modules/fileset-utils/library.xpl"/>
-  <!-- <p:import href="http://www.daisy.org/pipeline/modules/mathml-to-ssml/library.xpl"/> -->
+  <p:import href="http://www.daisy.org/pipeline/modules/mathml-to-ssml/library.xpl"/>
   <p:import href="annotate.xpl" />
   <p:import href="css-to-ssml.xpl" />
   <p:import href="apply-lexicons.xpl" />
   <p:import href="extract-skippable.xpl" />
+  <p:import href="extract-mathml.xpl" />
+  <p:import href="reorder-sentences.xpl" />
 
   <p:variable name="style-ns" select="'http://www.daisy.org/ns/pipeline/tts'"/>
+
+
+  <!-- Description: insert text before and/or after particular nodes. Requirements: (1)
+       the document must have been kept intact as much as possible, because annotations
+       are authored by end-users according to their expectations of the output and its
+       format (e.g. DTBook, HTML). This is why annotating should be performed first. -->
+  <px:annotate name="annotate">
+    <p:input port="annotations">
+      <p:pipe port="annotations" step="main"/>
+    </p:input>
+    <p:input port="sentence-ids">
+      <p:pipe port="sentence-ids" step="main"/>
+    </p:input>
+  </px:annotate>
 
   <!-- Replace sentences and words with their SSML counterparts so that it will be much
        simpler and faster to apply transformations later.  -->
@@ -71,7 +80,7 @@
     <p:with-param name="word-attr" select="$word-attr"/>
     <p:with-param name="word-attr-val" select="$word-attr-val"/>
     <p:input port="source">
-      <p:pipe port="content.in" step="main"/>
+      <p:pipe port="result" step="annotate"/>
       <p:pipe port="sentence-ids" step="main"/>
     </p:input>
     <p:input port="stylesheet">
@@ -79,14 +88,16 @@
     </p:input>
   </p:xslt>
 
-  <!-- Description: insert text before and/or after particular nodes. Requirements: (1)
-       sentences have been transformed into SSML <s>, (2) the structure of the document
-       has been fully kept so we can annotate nodes outside sentences. -->
-  <px:annotate name="annotate">
-    <p:input port="annotations">
-      <p:pipe port="annotations" step="main"/>
+  <!-- Description: list the @id in document order. Requirements: (1) must be performed
+       before elements get separated.-->
+  <p:xslt name="get-original-order">
+    <p:input port="stylesheet">
+      <p:document href="../xslt/list-ids.xsl"/>
     </p:input>
-  </px:annotate>
+    <p:input port="parameters">
+      <p:empty/>
+    </p:input>
+  </p:xslt>
 
   <!-- Description: flatten the document structure by keeping only the sentences, taking
        CSS into consideration. Requirements : (1) sentences have been transformed into
@@ -95,6 +106,9 @@
   <p:xslt name="flatten">
     <p:with-param name="lang" select="$lang"/>
     <p:with-param name="style-ns" select="$style-ns"/>
+    <p:input port="source">
+      <p:pipe port="result" step="normalize"/>
+    </p:input>
     <p:input port="stylesheet">
       <p:document href="../xslt/flatten-structure.xsl"/>
     </p:input>
@@ -111,6 +125,12 @@
       <p:pipe port="skippable-ids" step="main"/>
     </p:input>
   </pxi:extract-skippable>
+
+  <pxi:extract-mathml name="main-doc-separate-math">
+    <p:input port="math-ids">
+      <p:pipe port="content.in" step="main"/>
+    </p:input>
+  </pxi:extract-mathml>
 
   <!-- Description: convert CSS inside the sentences of the skippable-free
        document. Requirements: (1) structure inside sentences still there. -->
@@ -141,6 +161,19 @@
     </p:input>
   </p:xslt>
 
+  <!-- =================================================== -->
+  <!-- ========= SKIPPABLE ELEMENTS PROCESSING =========== -->
+
+
+  <pxi:extract-mathml name="skippable-doc-separate-math">
+    <p:input port="source">
+      <p:pipe port="skippable-only" step="separate-skippable"/>
+    </p:input>
+    <p:input port="math-ids">
+      <p:pipe port="content.in" step="main"/>
+    </p:input>
+  </pxi:extract-mathml>
+
   <!-- Description: generate the SSML document dedicated to skippable elements. The
        document will group together elements that share the same CSS
        properties. Everything is converted but the content of the skippable-elements (in
@@ -151,11 +184,31 @@
     <p:input port="stylesheet">
       <p:document href="../xslt/skippable-to-ssml.xsl"/>
     </p:input>
-    <p:input port="source">
-      <p:pipe port="skippable-only" step="separate-skippable"/>
-    </p:input>
   </p:xslt>
 
   <pxi:css-to-ssml name="ssml-of-skippable"/>
+
+  <!-- =================================================== -->
+  <!-- ===================== MATHML ====================== -->
+
+  <px:mathml-to-ssml>
+    <p:input port="source">
+      <p:pipe port="mathml-only" step="main-doc-separate-math"/>
+      <p:pipe port="mathml-only" step="skippable-doc-separate-math"/>
+    </p:input>
+  </px:mathml-to-ssml>
+  <pxi:css-to-ssml name="ssml-of-math"/>
+
+  <!-- put everything back in order -->
+  <pxi:reorder-sentences>
+    <p:input port="source">
+      <p:pipe port="result" step="clean-doc"/>
+      <p:pipe port="result" step="ssml-of-skippable"/>
+      <p:pipe port="result" step="ssml-of-math"/>
+    </p:input>
+    <p:input port="ids-in-order">
+      <p:pipe port="result" step="get-original-order"/>
+    </p:input>
+  </pxi:reorder-sentences>
 
 </p:declare-step>
