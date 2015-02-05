@@ -6,7 +6,7 @@ DAISY Pipeline 2 :: TTS Modules
 TTS-based production modules for the DAISY Pipeline 2
 
 
-### General workflow
+### General Workflow
 
 CSS inlining is performed on the input documents, while NLP and TTS tasks are always performed on the output documents. For instance, in the dtbook-to-epub3 script, CSS is inlined in the DTBook document while NLP and TTS are run on the HTML files.
 This is so because:
@@ -31,6 +31,15 @@ At the end, the TTS step returns a list of audio clips such as this one:
 ```
 
 @idref is the id of an element of the original document: most likely a sentence, sometimes a skippable element. The map is then provided to whichever script that requires it to generate SMIL-like files. The conversion scripts are supposed to call `px:rm-audio-files` after everything has been copied to the output directory.
+
+### Skippable Elements
+
+A skippable element is any XML element that we want to be processed separately, after being moved to a dedicated SSML sentence. It allows us to:
+- use a different voice or engine for this particular kind of element.
+- run different XProc/XSLT scripts on them. This is partly the reason that MathML islands are skippable.
+- know the boundary (in seconds) of the skippable elements within the audio clips.
+
+This latter feature is convenient to follow the Daisy3 specs, according to which the SMIL files must allow users to skip the utterance of the pagenums, annorefs and noterefs. Thus, those elements have to be declared as skippable, but that would do no harm to declare more of them. The only drawback is that skippable elements won't fit well with the sentences they belong to, because of the change of prosody, and that it requires inserting SSML marks which are not supported by every TTS processors.
 
 ### Modules
 
@@ -72,7 +81,34 @@ Audio buffers can contain any kind of data (8-bits, 16-bits, 8kHz, 16kHz and so 
 
 ### Voices
 
-The voice-family CSS property allows users to specify which voice and TTS engine they want to use. If the voice is not found, if the TTS engine is provided without the voice name, or if nothing at all is provided, ssml-to-audio will ask the TTSRegistry which voice is the best match for the requirements (i.e. language and TTS engine). This is why TTSRegistry includes an array of voices ordered by their rating. This array can be extended with the config file. See the user documentation for more information.
+The voice-family CSS property allows users to specify which voice and TTS engine they want to use. If the voice is not found, if the TTS engine is provided without the voice name, or if nothing at all is provided, ssml-to-audio will ask the Voice Manager which voice is the best match for the requirements (e.g. language and TTS engine).
+
+The algorithm of voice selection -currently in VoiceManager.java- can be a bit confusing. It works as follows:
+
+##### case 1: one or more criteria are supplied: language, gender, engine
+
+To reply to such a request, the Voice Manager precomputes 4 lists, each ordered by descending priority:
+- one that tries to match language, gender and engine
+- one that tries to match language and engine
+- one that tries to match language and gender
+- one that tries to match language only
+
+The algorithm checks the given criteria against these lists one after the other and returns the first voice that matches.
+In other words, a low-priority voice V1 will be chosen over a high-priority voice V2 if V1 is provided by the engine requested by the end-user.
+
+If no voice is found, it will return the best voice that provides the language "*", if there is any such voice registered. These voices are called "multi-lang voices." in the code.
+
+##### case 2: the full name of the voice is supplied by the end-user
+
+If the name is found, the corresponding voice is simply returned. If it isn't, the Pipeline will try finding a similar voice as long as it is aware of the characteristics (gender, engine and language) to look for, i.e. those of the voice that cannot be found.
+
+The link between a voice and its fallback counterpart is precomputed and stored in a map. Although this map would theoretically do the same job as in the 1st case, the code of the 1st case is not used for generating the map (this is an enhancement that we could think about). The only difference is that multi-lang voices compete with regular voices within the 4 lists.
+
+If yet not fallback voice is found, the algorithm will ignore the voice explicitly requested and instead extract new criteria from the 'voice-family' attribute. If other criteria do exist, then it will switch to case 1.
+
+##### case 3: a voice has been selected, but it doesn't work on the current sentence because of a timeout or for any other reason
+
+This case is equivalent to the case 2 when the voice is not found.
 
 ### Skippable elements and audio clips
 
@@ -122,6 +158,22 @@ Just as for regular sentences, ssml-to-audio will add three clips in the audio-m
 
 Running jobs cannot be canceled yet, but it can happen that the Pipeline2 server is requested to stop gracefully. The TTS modules are built so that the TTS resources can be invalidated during running jobs. In such cases, the TTS threads will keep popping text packets but they won't process them. As a result, they will exit quickly and the deallocation callbacks will be called no matter what problems occurred.
 
+### MathML
+
+The conversion from MathML to SSML is based on MathML3.0 specs. Almost everything regarding MathML is in the module mathml-to-ssml. Minor things, such as annotations and extraction, are done in module text-to-ssml.
+
+Direct conversion from Content MathML is not handled yet. For now, Content MathML is converted into Presentation MathML using a third-party XSLT.
+Pres MathML conversion is in-house though, and is performed from a single XSLT so it can be readily employed in other projects.
+
+The conversion relies on an external XML file that defines how to deconstruct MathML, much as how you would extract information using regexp groups and build language-dependent SSML from the matching groups.
+Internally, these rules are indeed converted into regexps, thus everything that can't be done using regexps, can't be done with those rules either.
+It would have been more powerful with XSLT rules, but regexp-like rules has been preferred for the sake of simplicity, especially when it comes to combining matching and extraction.
+
+Although there are rules to convert ASCII symbols (e.g. '+' and '-'), there aren't rules to convert complex UTF-8 symbols such as ℝ and ∬. It is the responsibility of the TTS processors to properly pronounce such symbols. eSpeak has a limited preset of symbols, whereas Acapela seems to pronounce them all. It has never been tested with other engines.
+
+
+###
+
 ### Known Limitations
 
 - Relative CSS properties (e.g. increase/decrease volume) are not interpreted;
@@ -130,4 +182,4 @@ Running jobs cannot be canceled yet, but it can happen that the Pipeline2 server
 - Remote TTS engines must share the same configuration (installed voices, sample rates etc.) or at least the 'master' server must be configured with the minimal configuration;
 - TTS processors can provide different audio formats, but the same engine must always provide the same format. If different voices of the same processor use different formats, it is the responsibility of the TTS adapter to re-sample the data before sending them to the TTS threads;
 - When a TTSService is stopped, the TTSRegistry acknowledges the stop but keeps a reference to it until all the releasing callbacks have been called, which is not exactly what one would expect from an OSGi bundle.
-- One cannot annotate dtbook:w since they are converted into ssml:token before the annotation step
+- There isn't a way for end-users to pass custom XML markups from their books to TTS processors. If there is any non-SSML nodes in the input, they will be filtered out in text-to-ssml. Even if they were left intact by text-to-ssml, they risk being removed by the SSML serializers of the TTS engines' adapters.
