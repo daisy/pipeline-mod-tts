@@ -43,7 +43,7 @@
     <p:count limit="1"/>
     <p:choose name="get-annotations">
       <p:when test=". &gt; 0">
-	<p:output port="result" primary="true"/>
+	<p:output port="result" primary="true" sequence="true"/>
 	<p:identity>
 	  <p:input port="source">
 	    <p:pipe port="result" step="get-config-annot"/>
@@ -51,7 +51,7 @@
 	</p:identity>
       </p:when>
       <p:otherwise>
-	<p:output port="result" primary="true"/>
+	<p:output port="result" primary="true" sequence="true"/>
 	<p:load href="http://www.daisy.org/pipeline/modules/text-to-ssml/dtbook-annotating.xsl"/>
       </p:otherwise>
     </p:choose>

@@ -42,8 +42,8 @@
 	      <xsl:variable name="translated-annot"
 			    select="$annotations/descendant-or-self::*[@xml:lang=$lang or @xml:lang=$short-lang][1]"/>
 	      <xsl:variable name="parent-sent" select="ancestor-or-self::*[@id and key('sentences', @id, $sentence-ids)][1]"/>
-	      <xsl:variable name="translated-before" select="$translated-annot/tts:before/node()"/>
-	      <xsl:variable name="translated-after" select="$translated-annot/tts:after/node()"/>
+	      <xsl:variable name="translated-before" select="$translated-annot/*[local-name()='before']/node()"/>
+	      <xsl:variable name="translated-after" select="$translated-annot/*[local-name()='after']/node()"/>
 	      <xsl:choose>
 		<xsl:when test="$parent-sent">
 		  <tts:before>
