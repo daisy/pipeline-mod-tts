@@ -5,7 +5,49 @@
 	       xmlns="http://www.w3.org/1998/Math/MathML"
                script="../../main/resources/xml/mathml-to-ssml.xpl">
 
-  <x:scenario label="mtext">
+  <x:scenario label="empty mathml">
+    <x:call step="px:mathml-to-ssml">
+      <x:input port="source">
+	<x:document type="inline">
+	  <math xml:lang="en" id="m1"/>
+	</x:document>
+      </x:input>
+    </x:call>
+    <x:context label="result">
+      <x:document type="port" port="result"/>
+    </x:context>
+    <x:expect label="ssml" type="compare">
+      <x:document type="inline">
+	<ssml:speak version="1.1">
+	</ssml:speak>
+      </x:document>
+    </x:expect>
+  </x:scenario>
+
+
+  <x:scenario label="mtext only">
+    <x:call step="px:mathml-to-ssml">
+      <x:input port="source">
+	<x:document type="inline">
+	  <math xml:lang="en" id="m1">
+	    <mtext>text1</mtext>
+	    <mtext>text2</mtext>
+	  </math>
+	</x:document>
+      </x:input>
+    </x:call>
+    <x:context label="result">
+      <x:document type="port" port="result"/>
+    </x:context>
+    <x:expect label="ssml" type="compare">
+      <x:document type="inline">
+	<ssml:speak version="1.1">
+	</ssml:speak>
+      </x:document>
+    </x:expect>
+  </x:scenario>
+
+  <x:scenario label="surrounding mtext">
     <x:call step="px:mathml-to-ssml">
       <x:input port="source">
 	<x:document type="inline">
@@ -269,5 +311,32 @@
     </x:expect>
   </x:scenario>
 
+  <x:scenario label="malformed MathML: empty mi and unsupported lang">
+    <x:call step="px:mathml-to-ssml">
+      <x:input port="source">
+	<x:document type="inline">
+	  <math xml:lang="zz" id="m1">
+            <mfrac>
+              <mrow>
+                <mi>Plus</mi><mi> </mi><mi>value</mi>
+              </mrow>
+              <mrow>
+                <mi>Valeur</mi><mi> </mi><mi>de</mi><mi> </mi><mi>la</mi><mi> </mi><mi>force</mi><mi> </mi><mi>de</mi><mi> </mi><mi>travail</mi>
+              </mrow>
+            </mfrac>
+          </math>
+	</x:document>
+      </x:input>
+    </x:call>
+    <x:context label="result">
+      <x:document type="port" port="result"/>
+    </x:context>
+    <x:expect label="ssml" type="compare">
+      <x:document type="inline">
+	<ssml:speak version="1.1">
+	</ssml:speak>
+      </x:document>
+    </x:expect>
+  </x:scenario>
 
 </x:description>

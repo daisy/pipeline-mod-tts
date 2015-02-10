@@ -127,12 +127,14 @@
 	<!-- Now we can try to match the regexs with the updated,
 	     serialized MathML: -->
 	<xsl:variable name="first-rule" select="$compiled-rules//d:rule[@regex][1]"/>
-	<xsl:call-template name="one-iteration">
-	  <xsl:with-param name="serialized" select="$shifted"/>
-	  <xsl:with-param name="rule" select="$first-rule"/>
-	  <xsl:with-param name="compiled-rules" select="$compiled-rules"/>
-	  <xsl:with-param name="emphasize" select="$emphasize"/>
-	</xsl:call-template>
+	<xsl:if test="$first-rule">
+	  <xsl:call-template name="one-iteration">
+	    <xsl:with-param name="serialized" select="$shifted"/>
+	    <xsl:with-param name="rule" select="$first-rule"/>
+	    <xsl:with-param name="compiled-rules" select="$compiled-rules"/>
+	    <xsl:with-param name="emphasize" select="$emphasize"/>
+	  </xsl:call-template>
+	</xsl:if>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
