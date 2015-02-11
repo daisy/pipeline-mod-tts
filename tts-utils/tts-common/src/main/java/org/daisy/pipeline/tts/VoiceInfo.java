@@ -57,8 +57,17 @@ public class VoiceInfo {
 		}
 
 	}
+	
+	public static class UnknownLanguage extends Exception{
+		public UnknownLanguage(String message) {
+	        super(message);
+	    }
+	}
 
-	public static Locale tagToLocale(String langtag) {
+	public static Locale tagToLocale(String langtag) throws UnknownLanguage {
+		if ("*".equals(langtag) || langtag == null)
+			return NO_DEFINITE_LANG;
+		
 		//TODO: in Java7 we would use:
 		//return Locale.forLanguageTag(lang)
 		//=> this works with BCP47 tags, and should work with old tags from RFC 3066
@@ -70,20 +79,24 @@ public class VoiceInfo {
 				locale = new Locale(m.group(1), m.group(2) != null ? m.group(2) : "");
 			}
 		}
+		
+		if (locale == null)
+			throw new UnknownLanguage(langtag);
+		
 		return locale;
 	}
 
 	public VoiceInfo(String voiceEngine, String voiceName, String language, Gender gender,
-	        float priority) {
+	        float priority) throws UnknownLanguage {
 		this(voiceEngine, voiceName, MarkSupport.DEFAULT, language, gender, priority);
 	}
 
 	public VoiceInfo(String voiceEngine, String voiceName, MarkSupport markSupport,
-	        String language, Gender gender, float priority) {
+	        String language, Gender gender, float priority) throws UnknownLanguage {
 		this(new Voice(voiceEngine, voiceName, markSupport), language, gender, priority);
 	}
 
-	public VoiceInfo(Voice v, String language, Gender gender, float priority) {
+	public VoiceInfo(Voice v, String language, Gender gender, float priority) throws UnknownLanguage {
 		this(v, tagToLocale(language), gender, priority);
 	}
 
@@ -93,7 +106,6 @@ public class VoiceInfo {
 
 	private VoiceInfo(Voice v, Locale locale, Gender gender, float priority) {
 		Preconditions.checkNotNull(v);
-		Preconditions.checkNotNull(locale);
 		Preconditions.checkNotNull(gender);
 		this.voice = v;
 		this.language = locale;
@@ -103,16 +115,23 @@ public class VoiceInfo {
 
 	@Override
 	public int hashCode() {
-		return this.voice.hashCode() ^ this.language.hashCode();
+		return this.voice.hashCode() ^ (this.language == null ? 0 : this.language.hashCode());
 	}
 
 	public boolean equals(Object other) {
 		VoiceInfo o = (VoiceInfo) other;
-		return voice.equals(o.voice) && language.equals(o.language);
+		return voice.equals(o.voice) && ((language == null && o.language == null) ||
+				(language != null && language.equals(o.language)));
+	}
+	
+	public boolean isMultiLang(){
+		return this.language == NO_DEFINITE_LANG;
 	}
 
 	public Gender gender;
 	public Voice voice;
 	public Locale language;
 	public float priority;
+	
+	public static Locale NO_DEFINITE_LANG = null;
 }

@@ -41,6 +41,7 @@ import org.daisy.pipeline.tts.Voice;
 import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceInfo;
 import org.daisy.pipeline.tts.VoiceInfo.Gender;
+import org.daisy.pipeline.tts.VoiceInfo.UnknownLanguage;
 import org.daisy.pipeline.tts.synthesize.IPipelineLogger;
 import org.daisy.pipeline.tts.synthesize.SSMLtoAudio;
 import org.daisy.pipeline.tts.synthesize.TTSLog;
@@ -65,8 +66,13 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 		@Override
 		public Collection<VoiceInfo> getVoiceDeclarations() {
-			return Arrays.asList(new VoiceInfo(Engine, VoiceName, MarkSupport.DEFAULT, "en",
-			        Gender.MALE_ADULT, 1.0f));
+			try {
+				return Arrays.asList(new VoiceInfo(Engine, VoiceName, MarkSupport.DEFAULT, "en",
+				        Gender.MALE_ADULT, 1.0f));
+			} catch (UnknownLanguage e) {
+				e.printStackTrace();
+				return null;
+			}
 		}
 
 		@Override

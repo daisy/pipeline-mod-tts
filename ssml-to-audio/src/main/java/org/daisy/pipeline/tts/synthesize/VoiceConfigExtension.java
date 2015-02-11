@@ -11,6 +11,7 @@ import net.sf.saxon.s9api.XdmNode;
 import org.daisy.pipeline.tts.Voice.MarkSupport;
 import org.daisy.pipeline.tts.VoiceInfo;
 import org.daisy.pipeline.tts.VoiceInfo.Gender;
+import org.daisy.pipeline.tts.VoiceInfo.UnknownLanguage;
 import org.daisy.pipeline.tts.config.ConfigProperties;
 import org.daisy.pipeline.tts.config.ConfigReader;
 import org.slf4j.Logger;
@@ -51,6 +52,8 @@ public class VoiceConfigExtension implements ConfigReader.Extension, ConfigPrope
 				} catch (NumberFormatException e) {
 					Logger.warn("Error while converting config file's priority " + priority
 					        + " to float.");
+				} catch (UnknownLanguage e) {
+					Logger.warn("Unknown language in config file: " +lang);
 				}
 			}
 			return true;

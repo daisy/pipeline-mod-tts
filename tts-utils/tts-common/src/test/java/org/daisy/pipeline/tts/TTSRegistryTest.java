@@ -20,6 +20,7 @@ import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.VoiceInfo.Gender;
+import org.daisy.pipeline.tts.VoiceInfo.UnknownLanguage;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -78,7 +79,11 @@ public class TTSRegistryTest {
 	private static String registerVoice(String engine, String name, String lang,
 	        String gender, float priority, List<VoiceInfo> extraVoices) {
 
-		extraVoices.add(new VoiceInfo(engine, name, lang, Gender.of(gender), priority));
+		try {
+			extraVoices.add(new VoiceInfo(engine, name, lang, Gender.of(gender), priority));
+		} catch (UnknownLanguage e) {
+			e.printStackTrace();
+		}
 
 		return engine + ":" + name;
 	}
@@ -384,5 +389,60 @@ public class TTSRegistryTest {
 		Assert.assertFalse(exactMatch[0]);
 		Assert.assertNotNull(v);
 		Assert.assertEquals(availableVoice, v.name);
+	}
+	
+	@Test
+	public void voiceFallback3() throws MalformedURLException {
+		String vendor1 = "vendor1";
+		String vendor2 = "vendor2";
+		String firstChoice = "voice1";
+		String secondChoice = "voice2";
+		String thirdChoice = "voice3";
+
+		List<VoiceInfo> extraVoices = new ArrayList<VoiceInfo>();
+		String fullname1 = registerVoice(vendor1, firstChoice, "en", "male-adult", 20,
+		        extraVoices);
+		String fullname2 = registerVoice(vendor2, "wrong-choice", "en", "male-adult", 5,
+		        extraVoices);
+		String fullname3 = registerVoice(vendor2, thirdChoice, "en", "male-adult", 19,
+		        extraVoices);
+		String fullname4 = registerVoice(vendor1, secondChoice, "en", "male-adult", 10,
+		        extraVoices);
+
+		VoiceManager vm = initVoiceManager(extraVoices, fullname1, fullname2, fullname3,
+		        fullname4);
+
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice(vendor1, null, "en-us", "male-adult", exactMatch);
+		Assert.assertTrue(exactMatch[0]);
+		Assert.assertNotNull(v);
+		Assert.assertEquals(firstChoice, v.name);
+
+		v = vm.findSecondaryVoice(v);
+		Assert.assertNotNull(v);
+		Assert.assertEquals(vendor1, v.engine);
+		Assert.assertEquals(secondChoice, v.name);
+	}
+	
+	@Test
+	public void multiLangVoice() throws MalformedURLException {
+		String vendor = "vendor";
+		String voiceName = "voice1";
+
+		List<VoiceInfo> extraVoices = new ArrayList<VoiceInfo>();
+		String fullname1 = registerVoice(vendor, voiceName, "*", "male-adult", 10,
+		        extraVoices);
+		String fullname2 = registerVoice(vendor, "wrongvoice", "fr", "male-adult", 5,
+		        extraVoices);
+
+		VoiceManager vm = initVoiceManager(extraVoices, fullname1, fullname2);
+
+		boolean[] exactMatch = new boolean[1];
+		Voice v = vm.findAvailableVoice("any-vendor", "any-voice", "fr", "female-adult",
+		        exactMatch);
+		Assert.assertFalse(exactMatch[0]);
+		Assert.assertNotNull(v);
+		Assert.assertEquals(vendor, vendor);
+		Assert.assertEquals(voiceName, v.name);
 	}
 }

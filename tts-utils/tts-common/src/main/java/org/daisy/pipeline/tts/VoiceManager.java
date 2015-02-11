@@ -17,6 +17,7 @@ import java.util.Set;
 
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.VoiceInfo.Gender;
+import org.daisy.pipeline.tts.VoiceInfo.UnknownLanguage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,10 +29,15 @@ public class VoiceManager {
 	private Map<VoiceKey, Voice> mVoiceFullDescription = new HashMap<VoiceKey, Voice>();
 	private Map<VoiceKey, Voice> mVoiceGenderMissing = new HashMap<VoiceKey, Voice>();
 	private Map<VoiceKey, Voice> mVoiceEngineMissing = new HashMap<VoiceKey, Voice>();
-	private Map<Locale, Voice> mVoiceLangOnly = new HashMap<Locale, Voice>();
+	private Map<Locale, Voice> mVoiceLangOnly = new HashMap<Locale, Voice>(); //both gender and engine are missing
 	private Map<Voice, TTSEngine> mBestEngines = new HashMap<Voice, TTSEngine>();
 	private Map<Voice, Voice> mSecondVoices = new HashMap<Voice, Voice>();
 	private static List<VoiceInfo> BuiltinVoices;
+	
+	//For now, we are keeping only one 'multi-lang' voice, which will be selected no matter which
+	//gender or engine is requested. So we are not considering the best multilang voice given an
+	//engine or a gender, though that would make sense for future improvements.
+	private Voice mBestMultiLangVoice; 
 
 	static {
 		//the following engine names must be consistent with the ones provided by the TTSService
@@ -48,10 +54,11 @@ public class VoiceManager {
 
 		//TODO: move this array to an external XML file (ideally a file editable by users).
 
-		BuiltinVoices = Arrays
+		try{
+			BuiltinVoices = Arrays
 		        .asList(
 		        //eSpeak:
-		        new VoiceInfo(eSpeak, "french", "fr", Gender.MALE_ADULT, eSpeakPriority),
+		        		new VoiceInfo(eSpeak, "french", "fr", Gender.MALE_ADULT, eSpeakPriority),
 		                new VoiceInfo(eSpeak, "danish", "da", Gender.MALE_ADULT,
 		                        eSpeakPriority),
 		                new VoiceInfo(eSpeak, "german", "de", Gender.MALE_ADULT,
@@ -191,6 +198,9 @@ public class VoiceManager {
 		                        Gender.MALE_ADULT, OSXSpeechPriority)
 
 		        );
+		} catch (UnknownLanguage e){
+			throw new RuntimeException(e);
+		}
 	}
 
 	public VoiceManager(Collection<TTSEngine> engines, Collection<VoiceInfo> extraVoices) {
@@ -200,10 +210,16 @@ public class VoiceManager {
 		priorities.addAll(extraVoices);
 		mVoicePriorities = new ArrayList<VoiceInfo>(priorities);
 		for (VoiceInfo vinfo : priorities) {
-			String shortLang = vinfo.language.getLanguage();
-			if (!vinfo.language.equals(new Locale(shortLang))) {
-				mVoicePriorities.add(new VoiceInfo(vinfo.voice, shortLang, vinfo.gender,
-				        vinfo.priority - priorityVariantPenalty));
+			if (vinfo.language != null){
+				String shortLang = vinfo.language.getLanguage();
+				if (!vinfo.language.equals(new Locale(shortLang))) {
+					try {
+						mVoicePriorities.add(new VoiceInfo(vinfo.voice, shortLang, vinfo.gender,
+						        vinfo.priority - priorityVariantPenalty));
+					} catch (UnknownLanguage e1) {
+						//should not happen
+					}
+				}
 			}
 		}
 		Comparator<VoiceInfo> reverseComp = new Comparator<VoiceInfo>() {
@@ -242,24 +258,35 @@ public class VoiceManager {
 			}
 		}
 		timeout.close();
+		
+		//get the best voice that can handle any language, if any
+		for (VoiceInfo voiceInfo : mVoicePriorities) {
+			if (voiceInfo.isMultiLang() && mBestEngines.containsKey(voiceInfo.voice)){
+				mBestMultiLangVoice = voiceInfo.voice;
+				break;
+			}
+		}
+		
+		//find all the languages. That will help us construct a multi-lang voice
+		HashSet<Locale> allLangs = new HashSet<Locale>();
+		for (VoiceInfo voiceInfo : mVoicePriorities)
+			allLangs.add(voiceInfo.language);
+		allLangs.remove(VoiceInfo.NO_DEFINITE_LANG);
+		
 
 		//Create maps for the best voices depending on the information available among
-		//the language, the vendor and the gender
+		//the language, the engine and the gender
 		for (VoiceInfo voiceInfo : mVoicePriorities) {
-			registerVoice(mVoiceFullDescription, new VoiceKey(voiceInfo.language,
-			        voiceInfo.gender, voiceInfo.voice.engine), voiceInfo.voice);
-
-			registerVoice(mVoiceGenderMissing, new VoiceKey(voiceInfo.language,
-			        voiceInfo.voice.engine), voiceInfo.voice);
-
-			registerVoice(mVoiceEngineMissing, new VoiceKey(voiceInfo.language,
-			        voiceInfo.gender), voiceInfo.voice);
-
-			registerVoice(mVoiceLangOnly, voiceInfo.language, voiceInfo.voice);
+			if (voiceInfo.isMultiLang()){
+				for (Locale lang : allLangs)
+					registerVoice(voiceInfo, lang);
+			}
+			else
+				registerVoice(voiceInfo, voiceInfo.language);
 		}
 
 		/*
-		 * Create a map of the best fallback voices for each language. Vendor is
+		 * Create a map of the best fallback voices for each language. engine is
 		 * more important than priority and gender. Gender is more important
 		 * than priority.
 		 */
@@ -271,6 +298,8 @@ public class VoiceManager {
 				sortedVoices.add(vi);
 			indexes[i] = sortedVoices.size();
 		}
+
+
 		setSecondVoices(sortedVoices, indexes, true, true);
 		setSecondVoices(sortedVoices, indexes, true, false);
 		setSecondVoices(sortedVoices, indexes, false, true);
@@ -330,6 +359,19 @@ public class VoiceManager {
 
 	// **** private implementation *****
 
+	private void registerVoice(VoiceInfo voiceInfo, Locale lang){
+		registerVoice(mVoiceFullDescription, new VoiceKey(lang,
+		        voiceInfo.gender, voiceInfo.voice.engine), voiceInfo.voice);
+
+		registerVoice(mVoiceGenderMissing, new VoiceKey(lang,
+		        voiceInfo.voice.engine), voiceInfo.voice);
+
+		registerVoice(mVoiceEngineMissing, new VoiceKey(lang,
+		        voiceInfo.gender), voiceInfo.voice);
+
+		registerVoice(mVoiceLangOnly, lang, voiceInfo.voice);
+	}
+	
 	private <K> void registerVoice(Map<K, Voice> voiceMap, K key, Voice v) {
 		if (!voiceMap.containsKey(key) && mBestEngines.containsKey(v))
 			voiceMap.put(key, v);
@@ -362,9 +404,14 @@ public class VoiceManager {
 
 		exactMatch[0] = false;
 
-		Locale loc = VoiceInfo.tagToLocale(lang);
-		if (loc == null)
+		Locale loc;
+		try {
+			loc = VoiceInfo.tagToLocale(lang);
+		} catch (UnknownLanguage e) {
 			return null;
+		}
+		if (loc == null)
+			return mBestMultiLangVoice;
 
 		Locale shortLoc = new Locale(loc.getLanguage());
 		Voice result;
@@ -390,17 +437,31 @@ public class VoiceManager {
 		}
 
 		exactMatch[0] = (voiceName == null && voiceEngine == null && gender == null);
-		return searchVoice(mVoiceLangOnly, loc, shortLoc);
+		result = searchVoice(mVoiceLangOnly, loc, shortLoc);
+		if (result != null){
+			return result;
+		}
+		
+		return mBestMultiLangVoice;
 	}
 
 	private void setSecondVoices(List<VoiceInfo> sortedAvailableVoices, int[] indexes,
 	        boolean sameEngine, boolean sameGender) {
 		for (int i = 0; i < mVoicePriorities.size(); ++i) {
 			VoiceInfo bestVoice = mVoicePriorities.get(i);
-			if (!mSecondVoices.containsKey(bestVoice)) {
+			if (!mSecondVoices.containsKey(bestVoice.voice)) {
 				for (int j = indexes[i]; j < sortedAvailableVoices.size(); ++j) {
 					VoiceInfo fallback = sortedAvailableVoices.get(j);
-					if (fallback.language.equals(bestVoice.language)
+					if (fallback.isMultiLang()){
+						if (!sameGender && !sameEngine){
+							//multilang fallback voices are only considered when gender and engine are not
+							//criteria so as to prevent the algo from choosing a multilang voice with the
+							//same engine over a regular voice with a different engine.
+							mSecondVoices.put(bestVoice.voice, fallback.voice);
+							break;
+						}
+					}
+					else if (fallback.language.equals(bestVoice.language)
 					        && (!sameGender || fallback.gender.equals(bestVoice.gender))
 					        && (!sameEngine || fallback.voice.engine
 					                .equals(bestVoice.voice.engine))) {
@@ -430,15 +491,15 @@ public class VoiceManager {
 			this.gender = gender;
 		}
 
-		public VoiceKey(Locale lang, String vendor) {
+		public VoiceKey(Locale lang, String engine) {
 			this.lang = lang;
-			this.engine = vendor;
+			this.engine = engine;
 		}
 
-		public VoiceKey(Locale lang, Gender gender, String vendor) {
+		public VoiceKey(Locale lang, Gender gender, String engine) {
 			this.lang = lang;
 			this.gender = gender;
-			this.engine = vendor;
+			this.engine = engine;
 		}
 
 		public int hashCode() {
