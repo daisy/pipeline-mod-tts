@@ -67,6 +67,7 @@
   <p:import href="http://www.daisy.org/pipeline/modules/ssml-to-audio/library.xpl" />
   <p:import href="http://www.daisy.org/pipeline/modules/dtbook-to-ssml/library.xpl" />
   <p:import href="http://www.daisy.org/pipeline/modules/dtbook-break-detection/library.xpl"/>
+  <p:import href="http://www.daisy.org/pipeline/modules/css-speech/library.xpl"/>
 
   <!-- Find the sentences and the words, even if the Text-To-Speech is off. -->
   <p:for-each name="lexing">
