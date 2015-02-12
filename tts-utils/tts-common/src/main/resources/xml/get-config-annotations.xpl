@@ -22,7 +22,7 @@
     <p:load name="load">
       <p:with-option name="href" select="resolve-uri($href, base-uri(/*))"/>
     </p:load>
-    <px:message>
+    <px:message severity="DEBUG">
       <p:with-option name="message" select="concat($href, ' loaded')"/>
     </px:message>
   </p:for-each>
