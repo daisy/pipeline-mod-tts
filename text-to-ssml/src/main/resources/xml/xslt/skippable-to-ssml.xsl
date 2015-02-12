@@ -9,10 +9,12 @@
   <!-- must have the same value as in the Java part -->
   <xsl:variable name="mark-delimiter" select="'___'"/>
 
+  <xsl:variable name="voice-attr" select="'voice-family'"/>
+
   <xsl:template match="/">
     <ssml:speak version="1.1">
       <!-- Group skippable elements with the same CSS properties. -->
-      <xsl:for-each-group select="/*/ssml:s" group-by="string-join(@xml:lang|@*[namespace-uri()=$style-ns],'_')">
+      <xsl:for-each-group select="/*/ssml:s" group-by="string-join(@xml:lang|ssml:get-voice(.),'_')">
 	<!-- Group by packets of 10 instances -->
 	<xsl:for-each-group select="current-group()" group-by="(position() - 1) idiv 10">
 	  <xsl:variable name="packet" select="current-group()"/>
@@ -23,6 +25,7 @@
 	           mark-free sentences. -->
 	      <ssml:s id="{ssml:get-skippable($packet[1])/@id}">
 		<xsl:copy-of select="$packet[1]/@* except @id"/>
+		<xsl:copy-of select="ssml:get-voice($packet[1])"/>
 		<xsl:copy-of select="$packet[1]/node()"/>
 	      </ssml:s>
 	    </xsl:when>
@@ -65,6 +68,11 @@
          surrounded by many nodes (such as annotations), thus we have to make sure that
          annotations have no @id attached. To address this problem, it would be ok to pass
          the list of skippable @ids as a parameter of this stylesheet. -->
+  </xsl:function>
+
+  <xsl:function name="ssml:get-voice">
+    <xsl:param name="sentence"/>
+    <xsl:sequence select="ssml:get-skippable($sentence)/ancestor-or-self::*[@*[local-name()=$voice-attr]]/@*[local-name()=$voice-attr]"/>
   </xsl:function>
 
 </xsl:stylesheet>

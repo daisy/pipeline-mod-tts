@@ -117,7 +117,7 @@
   <pxi:css-to-ssml/>
 
   <!-- Description: replace some SSML tokens with other tokens or a phonetic
-       translation. Requirements: (1) clean input with all words wrapper into SSML
+       translation. Requirements: (1) clean input with all words wrapped into SSML
        tokens. -->
   <pxi:apply-lexicons>
     <p:input port="user-lexicons">

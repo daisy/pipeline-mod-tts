@@ -7,6 +7,8 @@
                script="../../main/resources/xml/xproc/text-to-ssml.xpl">
 
 
+  <!-- TODO: XML comparisons should not take punctuation into account -->
+
   <x:scenario label="Full workflow">
     <x:call step="px:text-to-ssml">
       <x:input port="fileset.in">
@@ -129,7 +131,7 @@
 	    <s id="s1" xml:lang="en"><token>text1</token> <mark name="s1___s2"/> <token>text2</token> <mark name="s2___s3"/> <token>text3</token></s>
 	  </speak>
 	  <speak version="1.1">
-	    <s id="internal-holder-of-sk1" xml:lang="en">13 , <mark name="sk1___sk2"/> . 14</s>
+	    <s id="internal-holder-of-sk1" xml:lang="en">13 , <mark name="sk1___sk2"/> . 14 ,</s>
 	  </speak>
 	</x:document>
       </x:expect>
@@ -301,6 +303,132 @@
   	  </speak>
 	  <speak version="1.1">
 	    <!-- SSML for skippable elements -->
+	  </speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
+
+    <x:scenario label="CSS inside and outside sentence on standalone skippable elt V1">
+      <x:call step="px:text-to-ssml">
+	<x:input port="content.in">
+  	<x:document type="inline">
+  	  <dt:dtbook xml:lang="en" tmp:voice-family="engine,name">
+  	    <s id="s1"><dt:span tmp:volume="2"><dt:pagenum id="sk1">1</dt:pagenum></dt:span></s>
+  	  </dt:dtbook>
+        </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="result"/>
+      </x:context>
+      <x:expect label="result" type="compare">
+	<x:document type="inline">
+	  <speak version="1.1">
+	    <!-- regular doc -->
+	  </speak>
+	  <speak version="1.1">
+	    <s id="sk1" xml:lang="en" voice-selector1="engine" voice-selector2="name">
+              <prosody volume="2">1</prosody>
+	    </s>
+	  </speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
+
+    <x:scenario label="CSS inside and outside sentence on standalone skippable elt V2">
+      <x:call step="px:text-to-ssml">
+	<x:input port="content.in">
+  	<x:document type="inline">
+  	  <dt:dtbook xml:lang="en" tmp:volume="2">
+  	    <s id="s1"><dt:span tmp:voice-family="engine,name"><dt:pagenum id="sk1">1</dt:pagenum></dt:span></s>
+  	  </dt:dtbook>
+        </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="result"/>
+      </x:context>
+      <x:expect label="result" type="compare">
+	<x:document type="inline">
+	  <speak version="1.1">
+	    <!-- regular doc -->
+	  </speak>
+	  <speak version="1.1">
+	    <s id="sk1" xml:lang="en" voice-selector1="engine" voice-selector2="name">
+              <prosody volume="2">1</prosody>
+	    </s>
+	  </speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
+
+    <x:scenario label="CSS inside and outside sentence on separated skippable elt V1">
+      <x:call step="px:text-to-ssml">
+	<x:input port="content.in">
+  	<x:document type="inline">
+  	  <dt:dtbook xml:lang="en" tmp:voice-family="engine,name">
+  	    <s id="s1">
+	      <dt:span id="left"><dt:w>left</dt:w></dt:span>
+	      <dt:span tmp:volume="2"><dt:pagenum id="sk1">1</dt:pagenum></dt:span>
+	      <dt:span id="right"><dt:w>right</dt:w></dt:span>
+	    </s>
+  	  </dt:dtbook>
+        </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="result"/>
+      </x:context>
+      <x:expect label="result" type="compare">
+	<x:document type="inline">
+	  <speak version="1.1">
+	    <s id="s1" xml:lang="en" voice-selector1="engine" voice-selector2="name">
+              <token>left</token>
+              <mark name="left___right"/>
+              <token>right</token>
+	    </s>
+	  </speak>
+	  <speak version="1.1">
+	    <s id="sk1" xml:lang="en" voice-selector1="engine" voice-selector2="name">
+              <prosody volume="2">1</prosody>
+	    </s>
+	  </speak>
+	</x:document>
+      </x:expect>
+    </x:scenario>
+
+    <x:scenario label="CSS inside and outside sentence on separated skippable elt V2">
+      <x:call step="px:text-to-ssml">
+	<x:input port="content.in">
+  	<x:document type="inline">
+  	  <dt:dtbook xml:lang="en" tmp:volume="2">
+  	    <s id="s1">
+	      <dt:span id="left"><dt:w>left</dt:w></dt:span>
+	      <dt:span tmp:voice-family="engine,name"><dt:pagenum id="sk1">1</dt:pagenum></dt:span>
+	      <dt:span id="right"><dt:w>right</dt:w></dt:span>
+	    </s>
+  	  </dt:dtbook>
+        </x:document>
+	</x:input>
+      </x:call>
+      <x:context label="result">
+	<x:document type="port" port="result"/>
+      </x:context>
+      <x:expect label="result" type="compare">
+	<x:document type="inline">
+	  <speak version="1.1">
+	    <s id="s1" xml:lang="en">
+	      <prosody volume="2">
+		<token>left</token>
+		<mark name="left___right"/>
+		<token>right</token>
+	      </prosody>
+	    </s>
+	  </speak>
+	  <speak version="1.1">
+	    <s id="sk1" xml:lang="en" voice-selector1="engine" voice-selector2="name">
+              <prosody volume="2">1</prosody>
+	    </s>
 	  </speak>
 	</x:document>
       </x:expect>
