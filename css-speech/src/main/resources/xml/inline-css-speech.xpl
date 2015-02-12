@@ -24,19 +24,18 @@
   <p:import href="clean-up-namespaces.xpl"/>
 
   <p:variable name="style-ns" select="'http://www.daisy.org/ns/pipeline/tts'"/>
-  <p:variable name="fileset-base" select="base-uri(/*)">
-    <p:pipe port="fileset.in" step="main"/>
-  </p:variable>
 
   <p:for-each name="loop">
     <p:output port="result" sequence="true"/>
-    <p:variable name="doc-uri" select="base-uri(/*)"/>
-    <p:variable name="type-match"
-		select="count(//*[@media-type=$content-type and resolve-uri(@href, $fileset-base)=$doc-uri])">
+    <p:variable name="doc-name" select="tokenize(base-uri(/*),'/')[last()]"/>
+    <!-- This isn't a safe way to retrieve the media-type, but if both
+         URIs are not normalized the same way, it won't work to use
+         resolve-uri(@href, base-uri(.)) instead.-->
+    <p:variable name="media-type" select="//*[tokenize(@href, '/')[last()]=$doc-name]/@media-type">
       <p:pipe port="fileset.in" step="main"/>
     </p:variable>
     <p:choose>
-      <p:when test="$type-match = 0 and $content-type != ''">
+      <p:when test="$content-type != '' and $content-type != $media-type">
 	<p:output port="result"/>
 	<p:identity/>
       </p:when>
