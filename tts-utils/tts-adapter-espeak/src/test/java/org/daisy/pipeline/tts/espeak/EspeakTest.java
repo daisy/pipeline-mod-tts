@@ -45,7 +45,7 @@ public class EspeakTest {
 
 		TTSResource resource = engine.allocateThreadResources();
 		Collection<AudioBuffer> li = engine.synthesize("<s>this is a test</s>", null, null,
-		        resource, null, BufferAllocator, false);
+		        resource, BufferAllocator, false);
 		engine.releaseThreadResources(resource);
 
 		Assert.assertTrue(getSize(li) > 2000);
@@ -62,7 +62,7 @@ public class EspeakTest {
 		while (ite.hasNext()) {
 			Voice v = ite.next();
 			Collection<AudioBuffer> li = engine.synthesize("<s><voice name=\"" + v.name
-			        + "\">small test</voice></s>", null, null, resource, null,
+			        + "\">small test</voice></s>", null, null, resource,
 			        BufferAllocator, false);
 
 			sizes.add(getSize(li) / 4); //div 4 helps being more robust to tiny differences
@@ -82,7 +82,7 @@ public class EspeakTest {
 		TTSResource resource = engine.allocateThreadResources();
 		Collection<AudioBuffer> li = engine.synthesize(
 		        "<s>𝄞𝄞𝄞𝄞 水水水水水 𝄞水𝄞水𝄞水𝄞水 test 国Ø家Ť标准 ĜæŘ ß ŒÞ ๕</s>", null, null,
-		        resource, null, BufferAllocator, false);
+		        resource, BufferAllocator, false);
 		engine.releaseThreadResources(resource);
 
 		Assert.assertTrue(getSize(li) > 2000);
@@ -108,8 +108,7 @@ public class EspeakTest {
 					Collection<AudioBuffer> li = null;
 					for (int k = 0; k < 16; ++k) {
 						try {
-							li = engine.synthesize("<s>small test</s>", null, null, resource,
-							        null, BufferAllocator, false);
+							li = engine.synthesize("<s>small test</s>", null, null, resource, BufferAllocator, false);
 
 						} catch (SynthesisException | InterruptedException | MemoryException e) {
 							e.printStackTrace();

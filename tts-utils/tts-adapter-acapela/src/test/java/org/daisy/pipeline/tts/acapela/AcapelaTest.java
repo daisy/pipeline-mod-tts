@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -68,7 +69,7 @@ public class AcapelaTest {
 	@Test
 	public void getVoiceNames() throws SynthesisException, InterruptedException {
 		Collection<Voice> voices = tts.getAvailableVoices();
-		Assert.assertTrue(voices.size() > 0);
+		Assert.assertTrue("some voices must be found", voices.size() > 0);
 	}
 
 	@Test
@@ -78,24 +79,23 @@ public class AcapelaTest {
 		int size = getSize(tts.speak(format("this is a test"), r, null, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(size > 2000);
+		Assert.assertTrue("audio output must be big enough", size > 2000);
 	}
 
 	public void simpleBookmark(String bookmark) throws SynthesisException, MemoryException,
 	        InterruptedException {
 		TTSResource r = tts.allocateThreadResources();
 
-		List<Mark> l = new ArrayList<Mark>();
+		List<Mark> l = Arrays.asList(new Mark(bookmark, 0));
 
 		String text = "A piece of text long enough.";
 		int size = getSize(tts.speak(format(text + "<mark name=\"" + bookmark + "\"></mark>"
 		        + text), r, l, BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(size > 2000);
-		Assert.assertEquals(1, l.size());
-		Assert.assertEquals(bookmark, l.get(0).name);
-		Assert.assertTrue(Math.abs(size / 2 - l.get(0).offsetInAudio) < 5000); //the mark is around the middle
+		Assert.assertTrue("audio output must be big enough", size > 2000);
+		Assert.assertEquals("one bookmark should be found", 1, l.size());
+		Assert.assertTrue("the mark is around the middle", Math.abs(size / 2 - l.get(0).offsetInAudio) < 5000);
 	}
 
 	@Test
@@ -110,35 +110,24 @@ public class AcapelaTest {
 		simpleBookmark(tts.endingMark());
 	}
 
-	/*
-	 * right now, this test is expected to fail without the XSLT SSML adapter
-	 * that transforms the '___' into something else
-	 */
-	@Test
-	public void hardBookmark() throws SynthesisException, IOException, InterruptedException,
-	        MemoryException {
-		simpleBookmark("___bmark-999___");
-	}
 
 	@Test
 	public void twoBookmarks() throws SynthesisException, InterruptedException,
 	        MemoryException {
 		TTSResource r = tts.allocateThreadResources();
-
-		List<Mark> l = new ArrayList<Mark>();
 		String bmark1 = "1";
 		String bmark2 = "2";
-
+		List<Mark> l = Arrays.asList(new Mark(bmark1, 0), new Mark(bmark2, 0));
+		
 		int size = getSize(tts.speak(format("one two three four five six <mark name=\""
 		        + bmark1 + "\"/> seven <mark name=\"" + bmark2 + "\"/>"), r, l,
 		        BufferAllocator));
 		tts.releaseThreadResources(r);
 
-		Assert.assertTrue(size > 200);
-		Assert.assertTrue(2 == l.size());
-		Assert.assertEquals(bmark1, l.get(0).name);
-		Assert.assertEquals(bmark2, l.get(1).name);
-		Assert.assertTrue(l.get(1).offsetInAudio - l.get(0).offsetInAudio < l.get(0).offsetInAudio);
+		Assert.assertTrue("audio output must be big enough", size > 200);
+		Assert.assertEquals("2 booksmarks should be found", 2, l.size());
+		Assert.assertTrue("marks' offset should be realistic",
+					l.get(1).offsetInAudio - l.get(0).offsetInAudio < l.get(0).offsetInAudio);
 	}
 
 	private int[] findSize(final String[] sentences, int startShift)

@@ -21,9 +21,13 @@
       <p:pipe port="fileset" step="main"/>
     </p:iteration-source>
     <p:output port="result" sequence="true"/>
+    <p:variable name="lexicon-loc" select="resolve-uri(/*/@href, base-uri(.))"/>
     <p:load>
-      <p:with-option name="href" select="/*/@original-href"/>
+      <p:with-option name="href" select="$lexicon-loc"/>
     </p:load>
+    <px:message>
+      <p:with-option name="message" select="concat('load lexicon ', $lexicon-loc)"/>
+    </px:message>
   </p:for-each>
 
   <!-- find all the languages actually used -->
@@ -82,8 +86,6 @@
       </p:catch>
     </p:try>
   </p:for-each>
-
-  <px:message message="lexicons read from the disk"/><p:sink/>
 
   <p:identity name="empty-lexicon">
     <p:input port="source">

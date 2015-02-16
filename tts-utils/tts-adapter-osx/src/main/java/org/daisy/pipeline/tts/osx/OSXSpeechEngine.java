@@ -23,6 +23,7 @@ import net.sf.saxon.s9api.XdmNode;
 import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
+import org.daisy.pipeline.tts.MarklessTTSEngine;
 import org.daisy.pipeline.tts.SoundUtil;
 import org.daisy.pipeline.tts.TTSEngine;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
@@ -30,7 +31,7 @@ import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 
-public class OSXSpeechEngine extends TTSEngine {
+public class OSXSpeechEngine extends MarklessTTSEngine {
 
 	private AudioFormat mAudioFormat;
 	private String mSayPath;
@@ -45,7 +46,7 @@ public class OSXSpeechEngine extends TTSEngine {
 
 	@Override
 	public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-	        Voice voice, TTSResource threadResources, List<Mark> marks,
+	        Voice voice, TTSResource threadResources,
 	        AudioBufferAllocator bufferAllocator, boolean retry) throws SynthesisException,
 	        InterruptedException, MemoryException {
 

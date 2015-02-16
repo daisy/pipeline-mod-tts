@@ -132,7 +132,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 	static class DefaultTTSEngine extends TTSEngine implements DynamicMarkHandler {
 		@Override
 		public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-		        Voice voice, TTSResource threadResources, List<Mark> marks,
+		        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 		        AudioBufferAllocator bufferAllocator, boolean retry)
 		        throws SynthesisException, InterruptedException, MemoryException {
 
@@ -376,7 +376,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 				throw new SynthesisException("error");
@@ -398,7 +398,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 				throw new MemoryException(5000);
@@ -420,7 +420,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 				throw new InterruptedException();
@@ -442,7 +442,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 				Thread.sleep(6000);
@@ -469,7 +469,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 
@@ -477,7 +477,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 					throw new InterruptedException();
 
 				return super.synthesize(sentence, xmlSentence, voice, threadResources, marks,
-				        bufferAllocator, retry);
+						expectedMarks, bufferAllocator, retry);
 			}
 
 		};
@@ -500,7 +500,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 
@@ -508,7 +508,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 					throw new SynthesisException("error");
 
 				return super.synthesize(sentence, xmlSentence, voice, threadResources, marks,
-				        bufferAllocator, retry);
+				        expectedMarks, bufferAllocator, retry);
 			}
 
 		};
@@ -531,7 +531,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 
@@ -540,7 +540,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 				}
 
 				return super.synthesize(sentence, xmlSentence, voice, threadResources, marks,
-				        bufferAllocator, retry);
+				        expectedMarks, bufferAllocator, retry);
 			}
 
 		};
@@ -563,7 +563,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 
 			@Override
 			public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-			        Voice voice, TTSResource threadResources, List<Mark> marks,
+			        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 			        AudioBufferAllocator bufferAllocator, boolean retry)
 			        throws SynthesisException, InterruptedException, MemoryException {
 
@@ -571,7 +571,7 @@ public class SSMLtoAudioTest implements IPipelineLogger, URIResolver {
 					throw new MemoryException(5000);
 
 				return super.synthesize(sentence, xmlSentence, voice, threadResources, marks,
-				        bufferAllocator, retry);
+				        expectedMarks, bufferAllocator, retry);
 			}
 
 		};

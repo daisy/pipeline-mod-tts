@@ -66,6 +66,11 @@ public abstract class TTSEngine {
 	 *            synthesize(). That is, they start at 0. If the service doesn't
 	 *            handle SSML marks (i.e. endingmark() returns null). This
 	 *            parameter may be set to null.
+	 * @param expectedMarks are the mark names extracted from @param xmlSentence. The
+	 * 	          TTS engine can use them if it doesn't play well with complicated/long
+	 *            mark names, but it will harder to detect errors. It does include
+	 *            the TTS provider's ending mark. The ending-mark can be set to anything if
+	 *            the TTS processor or @param voice cannot handle marks. 
 	 * @param bufferAllocator is the object that the TTS Service must use to
 	 *            allocate new audio buffers.
 	 * @param retry is true when this is not the first time the thread attempts
@@ -77,7 +82,7 @@ public abstract class TTSEngine {
 	 * @return a list of adjacent PCM chunks produced by the TTS processor.
 	 */
 	abstract public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
-	        Voice voice, TTSResource threadResources, List<Mark> marks,
+	        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks,
 	        AudioBufferAllocator bufferAllocator, boolean retry) throws SynthesisException,
 	        InterruptedException, MemoryException;
 

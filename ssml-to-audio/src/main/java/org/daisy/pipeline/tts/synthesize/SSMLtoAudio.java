@@ -279,10 +279,13 @@ public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		//run the text-to-speech on the testing input
 		Collection<AudioBuffer> audioBuffers = null;
 		List<TTSService.Mark> marks = new ArrayList<TTSService.Mark>();
+		List<String> expectedMarks = new ArrayList<String>();
+		if (engine.endingMark() != null)
+			expectedMarks.add(engine.endingMark());
 		try {
 			timeout.enableForCurrentThread(interrupter, 2);
 			audioBuffers = engine.synthesize(ttsInput, testingXML, firstVoice, res, marks,
-			        new StraightBufferAllocator(), false);
+			        expectedMarks, new StraightBufferAllocator(), false);
 		} catch (Exception e) {
 			String msg = "Error while testing " + TTSServiceUtil.displayName(service) + "; "
 			        + e.getMessage() + ": " + getStack(e);

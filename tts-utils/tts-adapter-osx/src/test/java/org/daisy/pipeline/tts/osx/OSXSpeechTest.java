@@ -51,7 +51,7 @@ public class OSXSpeechTest {
 
 		TTSResource resource = engine.allocateThreadResources();
 		Collection<AudioBuffer> li = engine.synthesize("this is a test", null, voice,
-		        resource, null, BufferAllocator, false);
+		        resource,  BufferAllocator, false);
 		engine.releaseThreadResources(resource);
 
 		Assert.assertTrue(getSize(li) > 2000);
@@ -68,7 +68,7 @@ public class OSXSpeechTest {
 		while (ite.hasNext()) {
 			Voice v = ite.next();
 			Collection<AudioBuffer> li = engine.synthesize("small test", null, v, resource,
-			        null, BufferAllocator, false);
+			       BufferAllocator, false);
 
 			sizes.add(getSize(li) / 4); //div 4 helps being more robust to tiny differences
 			totalVoices++;
@@ -88,7 +88,7 @@ public class OSXSpeechTest {
 		Voice voice = getAnyVoice(engine);
 		Collection<AudioBuffer> li = engine.synthesize(
 		        "<s>𝄞𝄞𝄞𝄞 水水水水水 𝄞水𝄞水𝄞水𝄞水 test 国Ø家Ť标准 ĜæŘ ß ŒÞ ๕</s>", null, voice,
-		        resource, null, BufferAllocator, false);
+		        resource, BufferAllocator, false);
 		engine.releaseThreadResources(resource);
 
 		Assert.assertTrue(getSize(li) > 2000);
@@ -116,7 +116,7 @@ public class OSXSpeechTest {
 					Collection<AudioBuffer> li = null;
 					for (int k = 0; k < 16; ++k) {
 						try {
-							li = engine.synthesize("small test", null, voice, resource, null,
+							li = engine.synthesize("small test", null, voice, resource,
 							        BufferAllocator, false);
 
 						} catch (SynthesisException | InterruptedException | MemoryException e) {

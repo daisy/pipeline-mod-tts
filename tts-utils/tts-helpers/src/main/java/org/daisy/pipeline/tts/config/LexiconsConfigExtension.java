@@ -18,7 +18,7 @@ public class LexiconsConfigExtension implements ConfigReader.Extension {
 	@Override
 	public boolean parseNode(XdmNode node, URI documentURI) {
 		String name = node.getNodeName().getLocalName();
-		if ("lexicons".equalsIgnoreCase(name)) {
+		if ("lexicon".equalsIgnoreCase(name)) {
 			String href = node.getAttributeValue(new QName(null, "href"));
 			if (href != null) {
 				XdmNode external = ConfigReader.readFromURIinsideConfig(href, node

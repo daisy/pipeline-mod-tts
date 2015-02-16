@@ -16,6 +16,7 @@ import net.sf.saxon.s9api.XdmNode;
 import org.daisy.common.xslt.ThreadUnsafeXslTransformer;
 import org.daisy.common.xslt.XslTransformCompiler;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.xmlcalabash.util.TreeWriter;
@@ -26,6 +27,8 @@ public class AcapelaSSMLTest {
 	private static Processor Proc = new Processor(false);
 	private static String SsmlNs = "http://www.w3.org/2001/10/synthesis";
 
+	//TODO: test the ending-mark
+	
 	@Before
 	public void setUp() throws SaxonApiException {
 		InputStream is = this.getClass().getResourceAsStream("/transform-ssml.xsl");
@@ -35,7 +38,6 @@ public class AcapelaSSMLTest {
 
 	@Test
 	public void simpleConversion() throws URISyntaxException, SaxonApiException {
-		String endingmark = "e-mark";
 		String voice = "john";
 
 		TreeWriter tw = new TreeWriter(Proc);
@@ -49,7 +51,6 @@ public class AcapelaSSMLTest {
 		tw.addEndElement();
 
 		Map<String, Object> params = new TreeMap<String, Object>();
-		params.put("ending-mark", endingmark);
 		params.put("voice", voice);
 
 		String result = Transformer.transformToString(tw.getResult(), params);
@@ -57,14 +58,12 @@ public class AcapelaSSMLTest {
 		Assert.assertEquals(
 		        "\\voice{"
 		                + voice
-		                + "}<x><y attr=\"attr-val\"></y>this is text</x><break time=\"250ms\"></break><mark name=\""
-		                + endingmark + "\"/>", result);
+		                + "}<x><y attr=\"attr-val\"></y>this is text</x><break time=\"250ms\"></break>", result);
 
 	}
 
 	@Test
 	public void noDocumentRoot() throws URISyntaxException, SaxonApiException {
-		String endingmark = "e-mark";
 		String voice = "john";
 
 		TreeWriter tw = new TreeWriter(Proc);
@@ -78,7 +77,6 @@ public class AcapelaSSMLTest {
 		tw.addEndElement();
 
 		Map<String, Object> params = new TreeMap<String, Object>();
-		params.put("ending-mark", endingmark);
 		params.put("voice", voice);
 
 		XdmNode firstChild = (XdmNode) tw.getResult().axisIterator(Axis.CHILD).next();
@@ -87,11 +85,12 @@ public class AcapelaSSMLTest {
 		Assert.assertEquals(
 		        "\\voice{"
 		                + voice
-		                + "}<x><y attr=\"attr-val\"></y>this is text</x><break time=\"250ms\"></break><mark name=\""
-		                + endingmark + "\"/>", result);
+		                + "}<x><y attr=\"attr-val\"></y>this is text</x><break time=\"250ms\"></break>", result);
 
 	}
 
+	//no longer relevant since we don't use mark names anymore
+	@Ignore
 	@Test
 	public void hardMarkName() throws URISyntaxException, SaxonApiException {
 		String endingmark = "e-mark";

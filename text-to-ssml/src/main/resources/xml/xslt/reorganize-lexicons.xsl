@@ -1,8 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-    xmlns:xs="http://www.w3.org/2001/XMLSchema"
     xmlns:pls="http://www.w3.org/2005/01/pronunciation-lexicon"
-    xmlns:xml="http://www.w3.org/XML/1998/namespace"
     xmlns:tmp="http://www.daisy.org/ns/pipeline/tmp"
     exclude-result-prefixes="#all"
     version="2.0">
@@ -14,7 +11,7 @@
   <!-- # alphabet; -->
   <!-- It will speed up the next steps. -->
 
-  <xsl:template match="/*">
+  <xsl:template match="/" priority="2">
     <tmp:lexicons>
       <xsl:apply-templates select="collection()" mode="copy-subset">
 	<xsl:with-param name="regex" select="'false'"/>
@@ -27,6 +24,10 @@
 	</xsl:apply-templates>
       </tmp:lexicons>
     </xsl:result-document>
+  </xsl:template>
+
+  <xsl:template match="node()" priority="1">
+    <!-- ignore -->
   </xsl:template>
 
   <xsl:template match="node()" mode="copy-subset">
@@ -61,4 +62,3 @@
   </xsl:template>
 
 </xsl:stylesheet>
-

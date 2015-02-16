@@ -9,7 +9,7 @@
 
   <xsl:import href="get-lookahead.xsl"/>
 
-  <xsl:variable name="lexicons" select="collection()[2][1]"/>
+  <xsl:variable name="lexicons" select="collection()[2]"/>
 
   <xsl:key name="pronunciation" match="pls:lexeme"
 	   use="concat(ancestor::pls:lexicon/@xml:lang, lower-case(string-join(pls:grapheme/text(),'')))" />
@@ -73,4 +73,3 @@
   </xsl:template>
 
 </xsl:stylesheet>
-

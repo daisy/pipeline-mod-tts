@@ -40,7 +40,7 @@ public class TTSRegistryTest {
 
 	}
 
-	private static class SimplifiedProcessor extends TTSEngine {
+	private static class SimplifiedProcessor extends SimpleTTSEngine {
 
 		private Collection<Voice> mVoices;
 
@@ -65,7 +65,7 @@ public class TTSRegistryTest {
 		}
 
 		@Override
-		public Collection<AudioBuffer> synthesize(String sentence, XdmNode xmlSentence,
+		public Collection<AudioBuffer> synthesize(String sentence,
 		        Voice voice, TTSResource threadResources, List<Mark> marks,
 		        AudioBufferAllocator bufferAllocator, boolean retry)
 		        throws SynthesisException, InterruptedException, MemoryException {

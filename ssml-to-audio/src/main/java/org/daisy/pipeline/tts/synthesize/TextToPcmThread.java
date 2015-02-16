@@ -15,8 +15,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.sound.sampled.AudioFormat;
 
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
 
 import org.daisy.common.xslt.CompiledStylesheet;
 import org.daisy.common.xslt.ThreadUnsafeXslTransformer;
@@ -220,14 +224,15 @@ public class TextToPcmThread implements FormatSpecifications {
 	 * Wrapper around TTSService.synthesize() to transform the SSML into string
 	 */
 	public Collection<AudioBuffer> synthesizeSSML(TTSEngine tts, XdmNode ssml,
-	        String sentenceId, Voice voice, TTSResource threadResources, List<Mark> marks)
+	        String sentenceId, Voice voice, TTSResource threadResources, List<Mark> marks,
+	        List<String> expectedMarks)
 	        throws SaxonApiException, SynthesisException, InterruptedException,
 	        MemoryException {
 		String transformed = transformSSML(ssml, tts, voice);
 		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
 		logEntry.addTTSinput(transformed);
 		logEntry.setActualVoice(voice);
-		return tts.synthesize(transformed, ssml, voice, threadResources, marks,
+		return tts.synthesize(transformed, ssml, voice, threadResources, marks, expectedMarks,
 		        mAudioBufferTracker, false);
 	}
 
@@ -235,14 +240,17 @@ public class TextToPcmThread implements FormatSpecifications {
 	 * Wrapper around synthesizeSSML() to handle marks
 	 */
 	public Iterable<AudioBuffer> synthesize(TTSEngine tts, XdmNode ssml, String sentenceId,
-	        Voice voice, TTSResource threadResources, List<Mark> marks)
+	        Voice voice, TTSResource threadResources, List<Mark> marks, List<String> expectedMarks)
 	        throws SaxonApiException, SynthesisException, InterruptedException,
 	        MemoryException {
 		TTSLog.Entry logEntry = mTTSLog.getWritableEntry(sentenceId);
 		logEntry.resetTTSinput();
 		if (tts.endingMark() != null
-		        && voice.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED) //can handle marks
-			return synthesizeSSML(tts, ssml, sentenceId, voice, threadResources, marks);
+		        && voice.getMarkSupport() != MarkSupport.MARK_NOT_SUPPORTED){
+			//can handle mark
+			expectedMarks.set(expectedMarks.size()-1, tts.endingMark());
+			return synthesizeSSML(tts, ssml, sentenceId, voice, threadResources, marks, expectedMarks);
+		}
 		else {
 			Collection<Chunk> chunks = mSSMLSplitter.split(ssml);
 			Iterable<AudioBuffer> result = new ArrayList<AudioBuffer>();
@@ -251,7 +259,7 @@ public class TextToPcmThread implements FormatSpecifications {
 				Collection<AudioBuffer> buffers = null;
 				try {
 					buffers = synthesizeSSML(tts, chunk.ssml(), sentenceId, voice,
-					        threadResources, new ArrayList<Mark>());
+					        threadResources, new ArrayList<Mark>(), expectedMarks);
 				} catch (MemoryException | SaxonApiException | SynthesisException
 				        | InterruptedException e) {
 					//TODO: flush the buffers here
@@ -284,7 +292,8 @@ public class TextToPcmThread implements FormatSpecifications {
 	 * @return null if something went wrong
 	 */
 	private Iterable<AudioBuffer> speakWithVoice(final Sentence sentence, Voice v,
-	        final TTSEngine tts, List<Mark> marks, TTSTimeout timeout) throws MemoryException {
+	        final TTSEngine tts, List<Mark> marks, List<String> expectedMarks, TTSTimeout timeout)
+	        		throws MemoryException {
 		//allocate a TTS resource if necessary
 		TTSResource resource = mResources.get(tts);
 		if (resource == null) {
@@ -353,7 +362,7 @@ public class TextToPcmThread implements FormatSpecifications {
 					        new TTSLog.Error(ErrorCode.WARNING, msg));
 					return null;
 				}
-				pcm = synthesize(tts, sentence.getText(), sentence.getID(), v, resource, marks);
+				pcm = synthesize(tts, sentence.getText(), sentence.getID(), v, resource, marks, expectedMarks);
 			}
 		} catch (InterruptedException e) {
 			mTTSLog.getWritableEntry(sentence.getID()).addError(
@@ -387,25 +396,62 @@ public class TextToPcmThread implements FormatSpecifications {
 		if (marks.size() == 0 || (tts.endingMark() != null && !tts.endingMark().equals(
 		                marks.get(marks.size() - 1).name))) {
 			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
-
 			mTTSLog.getWritableEntry(sentence.getID()).addError(
 			        new TTSLog.Error(ErrorCode.WARNING, "missing ending mark with "
 			                + TTSServiceUtil.displayName(tts.getProvider())
 			                + ". Number of marks received: " + marks.size()));
-
 			return null;
 		}
+		
+		int marksReceived = marks.size();
+		if (expectedMarks.size() != marksReceived){
+			SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
+			mTTSLog.getWritableEntry(sentence.getID()).addError(
+			        new TTSLog.Error(ErrorCode.WARNING, "wrong number of marks with "
+			                + TTSServiceUtil.displayName(tts.getProvider())
+			                + ". Number of marks received: " + marksReceived +", expected number: "+expectedMarks.size()));
+			return null;
+		}
+		for (int i = 0; i < expectedMarks.size(); ++i){
+			String expectedMark = expectedMarks.get(i);
+			String actualMark = marks.get(i).name;
+			if ((actualMark == null && expectedMark != null) || (actualMark != null && !actualMark.equals(expectedMark))){
+				SoundUtil.cancelFootPrint(pcm, mAudioBufferTracker);
+				mTTSLog.getWritableEntry(sentence.getID()).addError(
+				        new TTSLog.Error(ErrorCode.WARNING, "mark name mismatch with "
+				                + TTSServiceUtil.displayName(tts.getProvider())
+				                + " actual: " + actualMark+", expected: "+expectedMark));
+				return null;
+			}
+		}
+		
 		return pcm;
+	}
+	
+	private List<String> getMarkNames(XdmNode ssml){
+		XdmSequenceIterator iter = ssml.axisIterator(Axis.DESCENDANT);
+		ArrayList<String> markNames = new ArrayList<String>();
+		while (iter.hasNext()){
+			XdmNode elt = (XdmNode) iter.next();
+			if (elt.getNodeKind() == XdmNodeKind.ELEMENT && "mark".equals(elt.getNodeName().getLocalName())){
+				markNames.add(elt.getAttributeValue(new QName("name")));
+			}
+		}
+		return markNames;
 	}
 
 	private void speak(ContiguousText section, Sentence sentence,
 	        BlockingQueue<ContiguousPCM> pcmOutput, TTSTimeout timeout, int maxQueueEltSize) {
+		
+		List<String> expectedMarks = getMarkNames(sentence.getText());
+		expectedMarks.add(null); //makes room for the ending-mark
+		
 		TTSEngine tts = sentence.getTTSproc();
 		Voice originalVoice = sentence.getVoice();
 		List<Mark> marks = new ArrayList<Mark>();
 		Iterable<AudioBuffer> pcm;
 		try {
-			pcm = speakWithVoice(sentence, originalVoice, tts, marks, timeout);
+			pcm = speakWithVoice(sentence, originalVoice, tts, marks, expectedMarks, timeout);
 		} catch (MemoryException e) {
 			flush(section, pcmOutput);
 			printMemError(sentence, e);
@@ -416,7 +462,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			releaseResource(tts, mResources.get(tts));
 			mResources.remove(tts);
 
-			//Find another TTS engine for this sentence
+			//Find another voice for this sentence
 			Voice newVoice = mVoiceManager.findSecondaryVoice(sentence.getVoice());
 			if (newVoice == null) {
 				mTTSLog.getWritableEntry(sentence.getID()).addError(
@@ -430,7 +476,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			//Try with the new engine
 			marks.clear();
 			try {
-				pcm = speakWithVoice(sentence, newVoice, tts, marks, timeout);
+				pcm = speakWithVoice(sentence, newVoice, tts, marks, expectedMarks, timeout);
 			} catch (MemoryException e) {
 				flush(section, pcmOutput);
 				printMemError(sentence, e);
