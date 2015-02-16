@@ -21,6 +21,7 @@
 
     <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
     <p:import href="http://www.daisy.org/pipeline/modules/text-to-ssml/library.xpl" />
+    <p:import href="http://www.daisy.org/pipeline/modules/tts-helpers/library.xpl"/>
 
     <px:get-tts-lexicons name="user-lexicons">
       <p:input port="config">
