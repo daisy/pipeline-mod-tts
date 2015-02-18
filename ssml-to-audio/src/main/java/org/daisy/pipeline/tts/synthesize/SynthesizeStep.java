@@ -195,12 +195,16 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		for (SoundFileLink sf : soundFragments) {
 			String soundFileURI = sf.soundFileURIHolder.toString();
 			if (!soundFileURI.isEmpty()) {
-				tw.addStartElement(ClipTag);
-				tw.addAttribute(Audio_attr_id, sf.xmlid);
-				tw.addAttribute(Audio_attr_clipBegin, convertSecondToString(sf.clipBegin));
-				tw.addAttribute(Audio_attr_clipEnd, convertSecondToString(sf.clipEnd));
-				tw.addAttribute(Audio_attr_src, soundFileURI);
-				tw.addEndElement();
+				if (sf.clipBegin < sf.clipEnd){
+					//sf.clipBegin = sf.clipEnd if the input text is empty. Those clips are not useful
+					//and they can eventually lead to validation errors
+					tw.addStartElement(ClipTag);
+					tw.addAttribute(Audio_attr_id, sf.xmlid);
+					tw.addAttribute(Audio_attr_clipBegin, convertSecondToString(sf.clipBegin));
+					tw.addAttribute(Audio_attr_clipEnd, convertSecondToString(sf.clipEnd));
+					tw.addAttribute(Audio_attr_src, soundFileURI);
+					tw.addEndElement();
+				}
 				++num;
 				TTSLog.Entry entry = log.getOrCreateEntry(sf.xmlid);
 				entry.setSoundfile(soundFileURI);
