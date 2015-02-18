@@ -42,9 +42,12 @@
 	      </xsl:when>
 	      <xsl:otherwise>
 		<xsl:variable name="look-ahead" select="string-join(ssml:get-lookahead(.),'')"/>
-		<xsl:value-of select="if ( (not($pr/pls:grapheme/@positive-lookahead) or matches($look-ahead, $pr/pls:grapheme/@positive-lookahead)) and
-				      (not($pr/pls:grapheme/@negative-lookahead) or not(matches($look-ahead, $pr/pls:grapheme/@negative-lookahead))) )
-				      then xs:boolean('true') else xs:boolean('false')"/>
+		<xsl:value-of select="( not($pr/pls:grapheme/@positive-lookahead) or
+				        matches($look-ahead, $pr/pls:grapheme/@positive-lookahead)
+                                      ) and
+				      ( not($pr/pls:grapheme/@negative-lookahead) or
+                                        not(matches($look-ahead, $pr/pls:grapheme/@negative-lookahead))
+                                      )"/>
 	      </xsl:otherwise>
 	    </xsl:choose>
 	  </xsl:variable>

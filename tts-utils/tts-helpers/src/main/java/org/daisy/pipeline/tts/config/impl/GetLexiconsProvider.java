@@ -1,5 +1,9 @@
 package org.daisy.pipeline.tts.config.impl;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -14,6 +18,7 @@ import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
 
 public class GetLexiconsProvider implements XProcStepProvider {
 
@@ -47,11 +52,23 @@ public class GetLexiconsProvider implements XProcStepProvider {
 
 			public void run() throws SaxonApiException {
 
+				Processor proc = runtime.getProcessor();
+				
 				LexiconsConfigExtension lexiconExt = new LexiconsConfigExtension();
-				new ConfigReader(runtime.getProcessor(), mConfig.read(), lexiconExt);
-
+				new ConfigReader(proc, mConfig.read(), lexiconExt);
+				
+				int i = 0;
 				for (XdmNode lexicon : lexiconExt.getLexicons()) {
-					mResult.write(lexicon);
+					TreeWriter tw = new TreeWriter(proc);
+					try {
+						tw.startDocument(new URI(lexicon.getDocumentURI().toString().replace(".xml", ""+i++ +".xml")));
+						tw.addSubtree(lexicon);
+						tw.endDocument();
+						mResult.write(tw.getResult());
+					} catch (URISyntaxException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
 			}
 

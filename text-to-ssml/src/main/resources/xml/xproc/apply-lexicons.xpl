@@ -90,7 +90,7 @@
   <p:identity name="empty-lexicon">
     <p:input port="source">
       <p:inline>
-	<pls:lexicon version="1.0" xmlns="http://www.w3.org/2005/01/pronunciation-lexicon"/>
+	<lexicon version="1.0" xmlns="http://www.w3.org/2005/01/pronunciation-lexicon"/>
       </p:inline>
     </p:input>
   </p:identity>

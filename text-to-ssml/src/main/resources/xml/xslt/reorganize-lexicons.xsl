@@ -12,11 +12,14 @@
   <!-- It will speed up the next steps. -->
 
   <xsl:template match="/" priority="2">
-    <tmp:lexicons>
-      <xsl:apply-templates select="collection()" mode="copy-subset">
-	<xsl:with-param name="regex" select="'false'"/>
-      </xsl:apply-templates>
-    </tmp:lexicons>
+    <!-- primary result -->
+    <xsl:result-document method="xml">
+      <tmp:lexicons>
+	<xsl:apply-templates select="collection()" mode="copy-subset">
+	  <xsl:with-param name="regex" select="'false'"/>
+	</xsl:apply-templates>
+      </tmp:lexicons>
+    </xsl:result-document>
     <xsl:result-document method="xml" href="regex-lexicons.xml">
       <tmp:lexicons>
 	<xsl:apply-templates select="collection()" mode="copy-subset">
@@ -27,20 +30,20 @@
   </xsl:template>
 
   <xsl:template match="node()" priority="1">
-    <!-- ignore -->
+    <xsl:apply-templates select="node()"/>
   </xsl:template>
 
   <xsl:template match="node()" mode="copy-subset">
     <xsl:param name="regex"/>
     <xsl:for-each-group select="pls:lexeme[(not(@regex) and $regex = 'false') or $regex = @regex]"
-			group-by="concat(ancestor-or-self::*[@xml:lang][1]/@xml:lang,
-				  ancestor-or-self::*[@alphabet][1]/@alphabet,
-				  exists(pls:alias))">
+  			group-by="concat(ancestor-or-self::*[@xml:lang][1]/@xml:lang,
+  				  ancestor-or-self::*[@alphabet][1]/@alphabet,
+  				  exists(pls:alias))">
       <xsl:variable name="alphabet" select="ancestor-or-self::*[@alphabet][1]/@alphabet"/>
       <pls:lexicon xml:lang="{ancestor-or-self::*[@xml:lang][1]/@xml:lang}"
-		   alphabet="{if ($alphabet) then $alphabet else 'ipa'}"
-		   alias="{exists(pls:alias)}">
-	<xsl:apply-templates select="current-group()" mode="copy"/>
+  		   alphabet="{if ($alphabet) then $alphabet else 'ipa'}"
+  		   alias="{exists(pls:alias)}">
+  	<xsl:apply-templates select="current-group()" mode="copy"/>
       </pls:lexicon>
     </xsl:for-each-group>
   </xsl:template>
