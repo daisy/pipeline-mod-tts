@@ -320,17 +320,18 @@ public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 
 		//check the ending mark
 		if (engine.endingMark() != null) {
+			String details = " input: "+ttsInput+", voice: "+firstVoice;
 			if (marks.size() != 1) {
-				msg += "One bookmark events expected, received " + marks.size() + " instead. ";
+				msg += "One bookmark events expected, but received " + marks.size() + " events instead. "+details;
 			} else {
 				Mark mark = marks.get(0);
 				if (!engine.endingMark().equals(mark.name)) {
 					msg += "Expecting ending mark " + engine.endingMark() + ", got "
-					        + mark.name + " instead. ";
+					        + mark.name + " instead. "+details;
 				}
 				if (mark.offsetInAudio < 2500) {
 					msg += "Expecting ending mark offset to be bigger, got "
-					        + mark.offsetInAudio + " as offset. ";
+					        + mark.offsetInAudio + " as offset. "+details;
 				}
 			}
 		}

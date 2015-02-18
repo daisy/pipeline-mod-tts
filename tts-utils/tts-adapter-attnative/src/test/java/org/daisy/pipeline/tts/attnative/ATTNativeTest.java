@@ -24,27 +24,7 @@ public class ATTNativeTest {
 
 	private static String Host = "localhost";
 	private static int Port = 8888;
-
-	private static String getLibPath(File location) {
-		if (location.isDirectory()) {
-			for (File f : location.listFiles()) {
-				String res = getLibPath(f);
-				if (res != null)
-					return res;
-			}
-		} else if (location.getName().contains(".so")) {
-			String path = location.getAbsolutePath();
-			String arch = System.getProperty("os.arch");
-			boolean mustBe64 = path.contains("64");
-			boolean mustBe32 = path.contains("86");
-			if ((!mustBe64 && !mustBe32) || (mustBe64 && arch.endsWith("64"))
-			        || (mustBe32 && !arch.endsWith("64")))
-				return path;
-		}
-
-		return null;
-	}
-
+	
 	private static class SingleThreadListener implements ATTLibListener {
 
 		int totalSize = 0;
@@ -76,14 +56,6 @@ public class ATTNativeTest {
 		}
 	}
 
-	private String SSML(String str) {
-		return str;
-	}
-
-	private String SSML(String str, String voiceName) {
-		return "<voice name=\"" + voiceName + "\">" + str + "</voice>";
-	}
-
 	static private void speak(Object handler, long connection, String text) {
 		ATTLib.speak(handler, connection,
 		        UTF8Converter.convertToUTF8(text, new byte[1]).buffer);
@@ -91,22 +63,20 @@ public class ATTNativeTest {
 
 	@Before
 	public void setUp() {
-		String libpath = getLibPath(new File(System.getProperty("user.dir")
-		        + "/target/generated-resources"));
-		System.load(libpath);
+		ATTHelpers.loadATT();
 	}
 
 	@Test
 	public void simpleConnection() {
 		long connection = ATTLib.openConnection(Host, Port, 16000, 16);
-		Assert.assertTrue(0 != connection);
+		Assert.assertNotSame("we could connect", 0, connection);
 		ATTLib.closeConnection(connection);
 	}
 
 	@Test
 	public void getVoiceNames() {
 		long connection = ATTLib.openConnection(Host, Port, 16000, 16);
-		Assert.assertTrue(0 != connection);
+		Assert.assertNotSame("we could connect", 0, connection);
 		String[] vnames = ATTLib.getVoiceNames(connection);
 		ATTLib.closeConnection(connection);
 		Assert.assertTrue(vnames.length > 0);
@@ -126,9 +96,9 @@ public class ATTNativeTest {
 		SingleThreadListener l = new SingleThreadListener();
 		ATTLib.setListener(l);
 		long connection = ATTLib.openConnection(Host, Port, 16000, 16);
-		Assert.assertTrue(0 != connection);
+		Assert.assertNotSame("we could connect", 0, connection);
 
-		speak(this, connection, SSML("hello world"));
+		speak(this, connection, ATTHelpers.SSML("hello world"));
 		ATTLib.closeConnection(connection);
 		Assert.assertTrue(l.totalSize > 2000);
 	}
@@ -139,16 +109,17 @@ public class ATTNativeTest {
 		ATTLib.setListener(l);
 
 		long connection = ATTLib.openConnection(Host, Port, 16000, 16);
-		Assert.assertTrue(connection != 0);
+		Assert.assertNotSame("we could connect", 0, connection);
 
 		String bmark = "bmark1";
-		speak(this, connection, SSML("around <mark name=\"" + bmark + "\"/> around"));
+		speak(this, connection,  ATTHelpers.SSML("around <mark name=\"" + bmark + "\"/> around"));
 		ATTLib.closeConnection(connection);
 
 		Assert.assertTrue(l.totalSize > 2000);
 		Assert.assertTrue(1 == l.markNames.size());
 		Assert.assertEquals(bmark, l.markNames.get(0));
-		Assert.assertTrue(Math.abs(l.totalSize / 2 - l.markPos.get(0)) < 3000); //the mark is around the middle
+		
+		Assert.assertTrue(Math.abs(l.totalSize / 2 - l.markPos.get(0)) < 10000); //the mark is around the middle
 	}
 
 	@Test
@@ -156,13 +127,16 @@ public class ATTNativeTest {
 		SingleThreadListener l = new SingleThreadListener();
 		ATTLib.setListener(l);
 		long connection = ATTLib.openConnection(Host, Port, 16000, 16);
-		Assert.assertTrue(0 != connection);
+		Assert.assertNotSame("we could connect", 0, connection);
+		
+		String[] vnames = ATTLib.getVoiceNames(connection);
+		Assert.assertTrue("some voices are availables", vnames.length > 0);
 
 		String bmark1 = "bmark1";
-		String bmark2 = "bmark2";
+		String bmark2 = "bmark-two";
 
-		speak(this, connection, SSML("one two three <mark name=\"" + bmark1
-		        + "\"/> four five <mark name=\"" + bmark2 + "\"/>"));
+		speak(this, connection,  ATTHelpers.SSML("one two three <mark name=\"" + bmark1
+		        + "\"/> four five <mark name=\"" + bmark2 + "\"/>", vnames[0]));
 		ATTLib.closeConnection(connection);
 
 		Assert.assertTrue(l.totalSize > 200);
@@ -212,8 +186,8 @@ public class ATTNativeTest {
 	@Test
 	public void multithreadedSpeak() throws InterruptedException {
 		final String[] sentences = new String[]{
-		        SSML("short"), SSML("regular size"), SSML("a bit longer size"),
-		        SSML("very much longer sentence")
+				 ATTHelpers.SSML("short"),  ATTHelpers.SSML("regular size"),  ATTHelpers.SSML("a bit longer size"),
+				 ATTHelpers.SSML("very much longer sentence")
 		};
 
 		int[] size1 = findSize(sentences, 0);
@@ -233,7 +207,7 @@ public class ATTNativeTest {
 		long connection = ATTLib.openConnection(Host, Port, 16000, 16);
 		Assert.assertTrue(0 != connection);
 
-		speak(this, connection, SSML("𝄞𝄞𝄞𝄞 水水水水水 𝄞水𝄞水𝄞水𝄞水 test 国Ø家Ť标准 ĜæŘ ß ŒÞ ๕"));
+		speak(this, connection,  ATTHelpers.SSML("𝄞𝄞𝄞𝄞 水水水水水 𝄞水𝄞水𝄞水𝄞水 test 国Ø家Ť标准 ĜæŘ ß ŒÞ ๕"));
 		ATTLib.closeConnection(connection);
 
 		Assert.assertTrue(l.totalSize > 2000);
@@ -250,7 +224,7 @@ public class ATTNativeTest {
 		Set<Integer> sizes = new HashSet<Integer>();
 		for (int i = 0; i < vnames.length; ++i) {
 			l.totalSize = 0;
-			speak(this, connection, SSML("hello world", vnames[i]));
+			speak(this, connection,  ATTHelpers.SSML("hello world", vnames[i]));
 			sizes.add(l.totalSize);
 		}
 		ATTLib.closeConnection(connection);

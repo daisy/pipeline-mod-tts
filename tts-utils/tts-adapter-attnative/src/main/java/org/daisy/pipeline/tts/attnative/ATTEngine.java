@@ -14,18 +14,24 @@ import org.daisy.pipeline.audio.AudioBuffer;
 import org.daisy.pipeline.tts.AbstractTTSService;
 import org.daisy.pipeline.tts.AudioBufferAllocator;
 import org.daisy.pipeline.tts.AudioBufferAllocator.MemoryException;
+import org.daisy.pipeline.tts.LoadBalancer;
 import org.daisy.pipeline.tts.LoadBalancer.Host;
 import org.daisy.pipeline.tts.RoundRobinLoadBalancer;
+import org.daisy.pipeline.tts.SimpleTTSEngine;
+import org.daisy.pipeline.tts.TTSEngine;
 import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
+import org.daisy.pipeline.tts.TTSService;
+import org.daisy.pipeline.tts.TTSService.Mark;
+import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.TTSServiceUtil;
 import org.daisy.pipeline.tts.Voice;
 
-public class ATTNative extends AbstractTTSService implements ATTLibListener {
+public class ATTEngine extends SimpleTTSEngine implements ATTLibListener {
 
 	private AudioFormat mAudioFormat;
-	private RoundRobinLoadBalancer mLoadBalancer;
-	private boolean mFirstInit = true;
-
+	private LoadBalancer mLoadBalancer;
+	private int mPriority;
+	
 	private static class ThreadResource extends TTSResource {
 		long connection;
 		List<AudioBuffer> audioBuffers;
@@ -35,61 +41,30 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener {
 		int outOfMemBytes;
 		AudioBufferAllocator bufferAllocator;
 	}
-
-	public void onBeforeOneExecution() throws SynthesisException, InterruptedException {
-		if (mFirstInit) {
-			System.loadLibrary("att");
-			mFirstInit = false;
-		}
-
-		mLoadBalancer = new RoundRobinLoadBalancer(System.getProperty("att.servers",
-		        "localhost:8888"), this);
-
-		mAudioFormat = new AudioFormat(16000, 16, 1, true, false);
+	
+	protected ATTEngine(TTSService provider, LoadBalancer lb, int priority) {
+		super(provider);
+		mLoadBalancer = lb;
 		ATTLib.setListener(this);
-
-		//Test the synthesizer so that the service won't be active if it fails.
-		int workingHosts = 0;
-		List<Host> nonWorking = new ArrayList<Host>();
-		Throwable lastError = null;
-		for (Host h : mLoadBalancer.getAllHosts()) {
-			TTSResource r = null;
-			Throwable t = null;
-			try {
-				r = allocateThreadResources(h);
-			} catch (SynthesisException | InterruptedException e) {
-				t = e;
-			}
-			if (t == null)
-				t = TTSServiceUtil.testTTS(this, "hello world", r);
-			if (t == null) {
-				++workingHosts;
-			} else {
-				lastError = t;
-				nonWorking.add(h);
-			}
-		}
-		if (workingHosts == 0) {
-			throw new SynthesisException("None of the AT&T servers is working. Last error: ",
-			        lastError);
-		}
-		mLoadBalancer.discardAll(nonWorking);
+		mPriority = priority;
+		mAudioFormat = new AudioFormat(16000, 16, 1, true, false);
 	}
 
 	@Override
-	public Collection<AudioBuffer> synthesize(String ssml, XdmNode xmlSSML, Voice voice,
-	        TTSResource resource, List<Mark> marks, AudioBufferAllocator bufferAllocator,
-	        boolean retry) throws SynthesisException, InterruptedException, MemoryException {
+	public Collection<AudioBuffer> synthesize(String sentence,
+			Voice voice, TTSResource threadResources,
+			List<Mark> marks, AudioBufferAllocator bufferAllocator,
+			boolean retry) throws SynthesisException, InterruptedException, MemoryException {
 		if (retry) {
 			//If the synthesis has failed once, it's likely because the connection is dead,
 			//therefore we open a new connection.
-			ThreadResource old = (ThreadResource) resource;
-			releaseThreadResources(resource);
+			ThreadResource old = (ThreadResource) threadResources;
+			releaseThreadResources(threadResources);
 			ThreadResource tr = (ThreadResource) allocateThreadResources();
 			old.connection = tr.connection;
 		}
 
-		return synthesize(ssml, resource, marks, bufferAllocator);
+		return synthesize(sentence, threadResources, marks, bufferAllocator);
 	}
 
 	private Collection<AudioBuffer> synthesize(String ssml, TTSResource resource,
@@ -118,11 +93,6 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener {
 	@Override
 	public AudioFormat getAudioOutputFormat() {
 		return mAudioFormat;
-	}
-
-	@Override
-	public String getName() {
-		return "att";
 	}
 
 	@Override
@@ -174,19 +144,8 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener {
 	}
 
 	@Override
-	public String getVersion() {
-		return "sdk";
-	}
-
-	@Override
-	public void onAfterOneExecution() {
-		mAudioFormat = null;
-		mLoadBalancer = null;
-	}
-
-	@Override
 	public int getOverallPriority() {
-		return Integer.valueOf(System.getProperty("att.native.priority", "10"));
+		return mPriority;
 	}
 
 	@Override
@@ -198,7 +157,7 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener {
 
 		Voice[] result = new Voice[voices.length];
 		for (int i = 0; i < voices.length; ++i) {
-			result[i] = new Voice(getName(), voices[i]);
+			result[i] = new Voice(getProvider().getName(), voices[i]);
 		}
 
 		return Arrays.asList(result);
@@ -208,4 +167,6 @@ public class ATTNative extends AbstractTTSService implements ATTLibListener {
 	public String endingMark() {
 		return "ending-mark";
 	}
+
+	
 }

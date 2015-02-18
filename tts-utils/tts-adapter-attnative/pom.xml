@@ -82,6 +82,13 @@
                   <classifier>i386-Linux-gpp-jni</classifier>
                   <type>nar</type>
                 </artifactItem>
+		<artifactItem>
+                  <groupId>org.daisy.pipeline</groupId>
+                  <artifactId>att-nar</artifactId>
+                  <version>1.0.0-SNAPSHOT</version>
+                  <classifier>amd64-Linux-gpp-jni</classifier>
+                  <type>nar</type>
+                </artifactItem>
               </artifactItems>
             </configuration>
           </execution>
@@ -99,7 +106,7 @@
               <tasks>
 		<!-- warning: only one profile should be used for compilation since the .so or .dll -->
 		<!-- will be copied to the same destination regardless of the profile chosen -->
-                <copy todir="target/generated-resources/native" flatten="true">
+                <copy todir="target/generated-resources/native">
                   <fileset dir="target/dependency">
                     <include name="**/*.so"/>
                     <include name="**/*.dylib"/>
@@ -112,7 +119,7 @@
 	 </executions>
       </plugin>
 
-      <!-- Package the dynamic library into an OSGI bundle -->
+      <!-- Package the dynamic library into an OSGi bundle -->
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
@@ -136,10 +143,15 @@
             <configuration>
               <classifier>linux</classifier>
               <instructions>
-		<Bundle-NativeCode>libatt.so;osname=linux;processor=x86;processor=x86-64</Bundle-NativeCode>
+		<Bundle-NativeCode>
+		  lib32/libatt.so;osname=linux;processor=x86,
+		  lib64/libatt.so;osname=linux;processor=x86-64
+		</Bundle-NativeCode>
                 <Include-Resource>
+		  {maven-resources},
                   OSGI-INF/tts-service.xml=src/main/resources/OSGI-INF/tts-service.xml,
-                  libatt.so=target/generated-resources/native/libatt-nar-1.0.0-SNAPSHOT.so
+                  lib32/libatt.so=target/generated-resources/native/lib/i386-Linux-gpp/jni/libatt-nar-1.0.0-SNAPSHOT.so,
+		  lib64/libatt.so=target/generated-resources/native/lib/amd64-Linux-gpp/jni/libatt-nar-1.0.0-SNAPSHOT.so
                 </Include-Resource>
               </instructions>
             </configuration>
@@ -162,6 +174,7 @@
 	    <configuration>
 	      <excludes>
 		<exclude>**/ATTNativeTest.java</exclude>
+		<exclude>**/ATTEngineTest.java</exclude>
 	      </excludes>
 	    </configuration>
 	  </plugin>

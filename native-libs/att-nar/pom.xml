@@ -1,7 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <!-- If you cross-compile for 32bit from a 64bit-machine, you need
+       to install the following packets: -->
+  <!-- libc6-dev-i386 -->
+  <!-- g++-multilib  -->
 
   <modelVersion>4.0.0</modelVersion>
 
@@ -27,9 +31,9 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
+        <groupId>com.github.maven-nar</groupId>
         <artifactId>nar-maven-plugin</artifactId>
-        <version>3.0.0-scijava-2</version>
+        <version>3.2.0</version>
         <extensions>true</extensions>
         <configuration>
           <cpp>
@@ -55,13 +59,6 @@
               <option>${subsystem.option}</option>
               <option>${link.option}</option>
             </options>
-	    <libs>
-	      <lib>
-		<name>TTSAPICS</name>
-		<type>static</type>
-		<directory>${sdk.location}/lib/</directory>
-	      </lib>
-	    </libs>
           </linker>
           <libraries>
             <library>
@@ -91,8 +88,10 @@
       <build>
         <plugins>
           <plugin>
+	    <groupId>com.github.maven-nar</groupId>
             <artifactId>nar-maven-plugin</artifactId>
             <configuration>
+	      <architecture>i386</architecture>
               <linker>
                 <sysLibs>
                   <sysLib>
@@ -102,6 +101,13 @@
                     <name>pthread</name>
                   </sysLib>
                 </sysLibs>
+		<libs>
+		  <lib>
+		    <name>TTSAPICS</name>
+		    <type>static</type>
+		    <directory>${sdk.location}/lib/</directory>
+		  </lib>
+		</libs>
               </linker>
             </configuration>
           </plugin>
@@ -125,8 +131,10 @@
       <build>
         <plugins>
           <plugin>
+	    <groupId>com.github.maven-nar</groupId>
             <artifactId>nar-maven-plugin</artifactId>
             <configuration>
+	      <architecture>amd64</architecture>
               <linker>
                 <sysLibs>
                   <sysLib>
@@ -136,6 +144,13 @@
                     <name>pthread</name>
                   </sysLib>
                 </sysLibs>
+		<libs>
+		  <lib>
+		    <name>TTSAPICS</name>
+		    <type>static</type>
+		    <directory>${sdk.location}/lib64/</directory>
+		  </lib>
+		</libs>
               </linker>
             </configuration>
           </plugin>
@@ -143,12 +158,5 @@
       </build>
     </profile>
   </profiles>
-
-  <pluginRepositories>
-    <pluginRepository>
-      <id>imagej.thirdparty</id>
-      <url>http://maven.imagej.net/content/repositories/thirdparty</url>
-    </pluginRepository>
-  </pluginRepositories>
 
 </project>
