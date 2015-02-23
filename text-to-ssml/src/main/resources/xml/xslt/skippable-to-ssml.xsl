@@ -24,7 +24,7 @@
 	           nothing. Instead, we keep standlone skippable elts as regular,
 	           mark-free sentences. -->
 	      <ssml:s id="{ssml:get-skippable($packet[1])/@id}">
-		<xsl:copy-of select="$packet[1]/@* except @id"/>
+		<xsl:copy-of select="$packet[1]/@* except @*[local-name()=$voice-attr] except @id"/>
 		<xsl:copy-of select="ssml:get-voice($packet[1])"/>
 		<xsl:copy-of select="$packet[1]/node()"/>
 	      </ssml:s>
@@ -32,7 +32,8 @@
 	    <xsl:otherwise>
 	      <ssml:s id="{concat('internal-holder-of-', ssml:get-skippable($packet[1])/@id)}">
 		<!-- Copy CSS and xml:lang: -->
-		<xsl:copy-of select="$packet[1]/@* except @id"/>
+		<xsl:copy-of select="$packet[1]/@* except @id except @*[local-name()=$voice-attr]"/>
+		<xsl:copy-of select="ssml:get-voice($packet[1])"/>
 
 		<xsl:for-each select="$packet">
 		  <xsl:variable name="foreach-pos" select="position()"/>
