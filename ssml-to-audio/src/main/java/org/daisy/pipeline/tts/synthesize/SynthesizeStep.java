@@ -145,7 +145,9 @@ public class SynthesizeStep extends DefaultStep implements FormatSpecifications,
 		VoiceConfigExtension configExt = new VoiceConfigExtension();
 		ConfigReader cr = new ConfigReader(mRuntime.getProcessor(), config.read(), configExt);
 
-		String logEnabledProp = cr.getAllProperties().get("log");
+		String logEnabledProp = cr.getDynamicProperties().get("log");
+		if (logEnabledProp == null)
+			logEnabledProp = cr.getStaticProperties().get("log");
 		boolean logEnabled = "true".equalsIgnoreCase(logEnabledProp) && mOutputDirOpt != null
 		        && !mOutputDirOpt.isEmpty();
 		TTSLog log;

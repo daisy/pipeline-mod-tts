@@ -465,7 +465,7 @@ public class SSMLtoAudio implements IProgressListener, FormatSpecifications {
 		int regularTTSthreadNum = convertToInt(mProperties, "threads.speaking.number",
 		        ttsThreadNum);
 		int totalTTSThreads = regularTTSthreadNum + reservedThreadNum;
-		int maxMemPerTTSThread = 20 * 1048576; //20MB
+		int maxMemPerTTSThread = convertToInt(mProperties, "threads.each.memlimit", 20)*1048576; //20MB
 		mLogger.printInfo("Number of encoding threads: " + encodingThreadNum);
 		mLogger.printInfo("Number of regular text-to-speech threads: " + regularTTSthreadNum);
 		mLogger.printInfo("Number of reserved text-to-speech threads: " + reservedThreadNum);
