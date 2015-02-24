@@ -291,19 +291,16 @@ public class VoiceManager {
 		 * than priority.
 		 */
 		List<VoiceInfo> sortedVoices = new ArrayList<VoiceInfo>();
-		int[] indexes = new int[mVoicePriorities.size()];
 		for (int i = 0; i < mVoicePriorities.size(); ++i) {
 			VoiceInfo vi = mVoicePriorities.get(i);
 			if (mBestEngines.containsKey(vi.voice))
 				sortedVoices.add(vi);
-			indexes[i] = sortedVoices.size();
 		}
 
-
-		setSecondVoices(sortedVoices, indexes, true, true);
-		setSecondVoices(sortedVoices, indexes, true, false);
-		setSecondVoices(sortedVoices, indexes, false, true);
-		setSecondVoices(sortedVoices, indexes, false, false);
+		setSecondVoices(sortedVoices, true, true);
+		setSecondVoices(sortedVoices, true, false);
+		setSecondVoices(sortedVoices, false, true);
+		setSecondVoices(sortedVoices, false, false);
 
 		//log the available voices
 		StringBuilder sb = new StringBuilder("Available voices:");
@@ -445,28 +442,29 @@ public class VoiceManager {
 		return mBestMultiLangVoice;
 	}
 
-	private void setSecondVoices(List<VoiceInfo> sortedAvailableVoices, int[] indexes,
+	private void setSecondVoices(List<VoiceInfo> sortedAvailableVoices,
 	        boolean sameEngine, boolean sameGender) {
 		for (int i = 0; i < mVoicePriorities.size(); ++i) {
 			VoiceInfo bestVoice = mVoicePriorities.get(i);
 			if (!mSecondVoices.containsKey(bestVoice.voice)) {
-				for (int j = indexes[i]; j < sortedAvailableVoices.size(); ++j) {
-					VoiceInfo fallback = sortedAvailableVoices.get(j);
-					if (fallback.isMultiLang()){
-						if (!sameGender && !sameEngine){
-							//multilang fallback voices are only considered when gender and engine are not
-							//criteria so as to prevent the algo from choosing a multilang voice with the
-							//same engine over a regular voice with a different engine.
+				for (VoiceInfo fallback : sortedAvailableVoices) {
+					if (!fallback.equals(bestVoice)){
+						if (fallback.isMultiLang()){
+							if (!sameGender && !sameEngine){
+								//multilang fallback voices are only considered when gender and engine are not
+								//criteria so as to prevent the algo from choosing a multilang voice with the
+								//same engine over a regular voice with a different engine.
+								mSecondVoices.put(bestVoice.voice, fallback.voice);
+								break;
+							}
+						}
+						else if (fallback.language.equals(bestVoice.language)
+						        && (!sameGender || fallback.gender.equals(bestVoice.gender))
+						        && (!sameEngine || fallback.voice.engine
+						                .equals(bestVoice.voice.engine))) {
 							mSecondVoices.put(bestVoice.voice, fallback.voice);
 							break;
 						}
-					}
-					else if (fallback.language.equals(bestVoice.language)
-					        && (!sameGender || fallback.gender.equals(bestVoice.gender))
-					        && (!sameEngine || fallback.voice.engine
-					                .equals(bestVoice.voice.engine))) {
-						mSecondVoices.put(bestVoice.voice, fallback.voice);
-						break;
 					}
 				}
 			}
