@@ -25,7 +25,7 @@
   <xsl:template match="text()[not(ancestor::ssml:token[1])]" priority="2">
     <xsl:value-of select="replace(
 			      replace(normalize-unicode(., 'NFKC'), '[\p{Z}]+', ' '),
-    			      '[^ \p{Pi}\p{Pf}\p{N},!?:;.()¿؟¡&quot;''&amp;™®©&#x055c;&#x07f9;&#x109f;&#x1944;&#x1363;&#xa1fe;&#x1808;&#x1802;&#x07f8;&#xa60d;&#x055d;&#xa6f5;&#x060c;&#x3001;&#x2026;&#x0eaf;&#x1801;&#x1362;&#x055c;&#x0df4;&#x3002;&#x0964;&#x06d4;&#x037e;&#x061b;&#x204f;&#x1363;&#xa6f6;&#x05c3;&#x003a;&#x0950;&#x0965;&#x0970;&#x061e;&#x061f;&#x06d4;&#x064f;]',
+    			      '[^ \p{Pi}\p{Pf}\p{N},!?:;.()¿؟¡%&quot;''&amp;™®©&#x055c;&#x07f9;&#x109f;&#x1944;&#x1363;&#xa1fe;&#x1808;&#x1802;&#x07f8;&#xa60d;&#x055d;&#xa6f5;&#x060c;&#x3001;&#x2026;&#x0eaf;&#x1801;&#x1362;&#x055c;&#x0df4;&#x3002;&#x0964;&#x06d4;&#x037e;&#x061b;&#x204f;&#x1363;&#xa6f6;&#x05c3;&#x003a;&#x0950;&#x0965;&#x0970;&#x061e;&#x061f;&#x06d4;&#x064f;]',
 			      ' '
                           )"/>
   </xsl:template>
