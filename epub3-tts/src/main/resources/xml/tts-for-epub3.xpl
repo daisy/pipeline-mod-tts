@@ -127,7 +127,7 @@
       <p:xpath-context>
 	<p:pipe port="fileset.in" step="main"/>
       </p:xpath-context>
-      <p:when test="//*[@media-type='application/xhtml+xml' and resolve-uri(@href, $fileset-base)=$doc-uri]">
+      <p:when test="//*[@media-type='application/xhtml+xml']/resolve-uri(@href, $fileset-base)=$doc-uri">
 	<p:output port="html">
 	  <p:pipe port="result" step="id"/>
 	</p:output>
