@@ -107,6 +107,7 @@
   <p:import href="http://www.daisy.org/pipeline/modules/epub3-to-ssml/library.xpl" />
   <p:import href="http://www.daisy.org/pipeline/modules/html-break-detection/library.xpl"/>
   <p:import href="http://www.daisy.org/pipeline/modules/common-utils/library.xpl"/>
+  <p:import href="http://www.daisy.org/pipeline/modules/css-speech/library.xpl"/>
 
   <p:variable name="fileset-base" select="base-uri(/*)">
     <p:pipe port="fileset.in" step="main"/>
