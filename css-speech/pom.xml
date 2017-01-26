@@ -18,6 +18,14 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.daisy.pipeline</groupId>
+      <artifactId>modules-registry</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.daisy.pipeline</groupId>
+      <artifactId>xmlcatalog</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.daisy.libs</groupId>
       <artifactId>jstyleparser</artifactId>
     </dependency>
@@ -58,7 +66,8 @@
 
   <properties>
     <expose-services>
-      org.daisy.pipeline.cssinlining.InlineCSSProvider
+      org.daisy.pipeline.cssinlining.InlineCSSProvider,
+      org.daisy.pipeline.modules.impl.Module_css_speech
     </expose-services>
   </properties>
   
@@ -69,7 +78,10 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Private-Package>org.daisy.pipeline.cssinlining</Private-Package>
+            <Private-Package>
+              org.daisy.pipeline.cssinlining,
+              org.daisy.pipeline.modules.impl;-split-package:=first
+            </Private-Package>
           </instructions>
         </configuration>
       </plugin>

@@ -55,7 +55,9 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Private-Package>org.daisy.pipeline.tts.acapella</Private-Package>
+            <Private-Package>
+              org.daisy.pipeline.tts.acapella
+            </Private-Package>
           </instructions>
         </configuration>
       </plugin>
