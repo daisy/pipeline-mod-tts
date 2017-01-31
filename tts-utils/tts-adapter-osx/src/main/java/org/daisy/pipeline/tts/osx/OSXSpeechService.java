@@ -4,8 +4,23 @@ import java.util.Map;
 
 import org.daisy.pipeline.tts.AbstractTTSService;
 import org.daisy.pipeline.tts.TTSEngine;
+import org.daisy.pipeline.tts.TTSService;
 
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.ComponentContext;
+
+@Component(
+	name = "osx-tts-service",
+	service = { TTSService.class }
+)
 public class OSXSpeechService extends AbstractTTSService {
+	
+	@Activate
+	@Override
+	protected void loadSSMLadapter(ComponentContext context) {
+		super.loadSSMLadapter(context);
+	}
 
 	@Override
 	public TTSEngine newEngine(Map<String, String> params) throws Throwable {

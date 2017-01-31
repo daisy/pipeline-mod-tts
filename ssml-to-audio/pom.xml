@@ -46,11 +46,22 @@
       <artifactId>saxon-he</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.compendium</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
      <groupId>junit</groupId>
      <artifactId>junit</artifactId>
      <scope>test</scope>
    </dependency>
   </dependencies>
+  
+  <properties>
+    <expose-services>
+      org.daisy.pipeline.tts.synthesize.SynthesizeProvider
+    </expose-services>
+  </properties>
 
   <build>
     <plugins>
@@ -59,8 +70,7 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Service-Component>OSGI-INF/synthesize.xml</Service-Component>
-	    <Export-Package />
+            <Private-Package>org.daisy.pipeline.tts.synthesize</Private-Package>
           </instructions>
         </configuration>
       </plugin>

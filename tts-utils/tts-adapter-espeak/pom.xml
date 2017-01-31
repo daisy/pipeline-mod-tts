@@ -33,7 +33,18 @@
       <groupId>org.daisy.pipeline</groupId>
       <artifactId>common-utils</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.compendium</artifactId>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
+  
+  <properties>
+    <expose-services>
+      org.daisy.pipeline.tts.espeak.ESpeakService
+    </expose-services>
+  </properties>
 
   <build>
     <plugins>
@@ -42,8 +53,7 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Service-Component>OSGI-INF/tts-service.xml</Service-Component>
-	    <Export-Package />
+            <Private-Package>org.daisy.pipeline.tts.espeak</Private-Package>
           </instructions>
         </configuration>
       </plugin>

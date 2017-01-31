@@ -17,20 +17,6 @@
   <name>DAISY Pipeline 2 module :: TTS API</name>
   <description>Common API for TTS functionality</description>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.felix</groupId>
-        <artifactId>maven-bundle-plugin</artifactId>
-        <configuration>
-          <instructions>
-            <Service-Component>OSGI-INF/tts-registry.xml</Service-Component>
-          </instructions>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
-
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
@@ -93,5 +79,11 @@
       <artifactId>tts-helpers</artifactId>
     </dependency>
   </dependencies>
+  
+  <properties>
+    <expose-services>
+      org.daisy.pipeline.tts.TTSRegistry
+    </expose-services>
+  </properties>
 
 </project>

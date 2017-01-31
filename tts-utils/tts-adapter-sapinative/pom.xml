@@ -39,6 +39,12 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+  
+  <properties>
+    <expose-services>
+      org.daisy.pipeline.tts.sapinative.SAPIservice
+    </expose-services>
+  </properties>
 
   <build>
     <plugins>
@@ -124,8 +130,7 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-	    <Service-Component>OSGI-INF/tts-service.xml</Service-Component>
-	    <Export-Package />
+            <Private-Package>org.daisy.pipeline.tts.sapinative</Private-Package>
           </instructions>
         </configuration>
         <executions>
@@ -146,7 +151,6 @@
 		  x64/sapinative.dll;osname=Win32;processor=x86-64
 		</Bundle-NativeCode>
                 <Include-Resource>
-                  OSGI-INF/tts-service.xml=src/main/resources/OSGI-INF/tts-service.xml,
 		  transform-ssml.xsl=src/main/resources/transform-ssml.xsl,
                   x64/sapinative.dll=target/generated-resources/lib/x64-Windows-msvc/jni/sapi-nar.dll,
 		  x86/sapinative.dll=target/generated-resources/lib/x86-Windows-msvc/jni/sapi-nar.dll

@@ -38,6 +38,11 @@
       <groupId>org.daisy.pipeline</groupId>
       <artifactId>calabash-adapter</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>org.osgi.compendium</artifactId>
+      <scope>provided</scope>
+    </dependency>
     <!--
           runtime dependencies
     -->
@@ -70,6 +75,13 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+  
+  <properties>
+    <expose-services>
+      org.daisy.pipeline.tts.config.impl.GetAnnotationsProvider,
+      org.daisy.pipeline.tts.config.impl.GetLexiconsProvider
+    </expose-services>
+  </properties>
 
   <build>
     <plugins>
@@ -90,7 +102,9 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Service-Component>OSGI-INF/get-tts-annotations.xml,OSGI-INF/get-tts-lexicons.xml</Service-Component>
+            <Private-Package>
+              org.daisy.pipeline.tts.config.impl
+            </Private-Package>
           </instructions>
         </configuration>
         <executions>
