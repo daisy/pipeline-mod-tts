@@ -1,73 +1,100 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>org.daisy.pipeline.modules</groupId>
-    <artifactId>modules-parent</artifactId>
-    <version>1.5</version>
-    <relativePath />
-  </parent>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.daisy.pipeline.modules</groupId>
+		<artifactId>modules-parent</artifactId>
+		<version>1.5</version>
+		<relativePath />
+	</parent>
 
-  <artifactId>tts-modules-parent</artifactId>
-  <version>1.10.2-SNAPSHOT</version>
-  <packaging>pom</packaging>
+	<artifactId>tts-modules-parent</artifactId>
+	<version>1.10.2-SNAPSHOT</version>
+	<packaging>pom</packaging>
 
-  <name>DAISY Pipeline 2 :: TTS Modules Parent POM</name>
-  <description>Parent POM for modules related to TTS-based production</description>
+	<name>DAISY Pipeline 2 :: TTS Modules Parent POM</name>
+	<description>Parent POM for modules related to TTS-based production</description>
 
-  <dependencyManagement>
-    <dependencies>
-      <!--
-            TTS Modules BoM
-      -->
-      <dependency>
-        <groupId>org.daisy.pipeline.modules</groupId>
-        <artifactId>tts-modules-bom</artifactId>
-        <version>1.10.2-SNAPSHOT</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <!--
-            Engine BoM
-      -->
-      <dependency>
-        <groupId>org.daisy.pipeline</groupId>
-        <artifactId>framework-bom</artifactId>
-        <version>1.10.0</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <!--
-            Other modules BoM
-      -->
-      <dependency>
-        <groupId>org.daisy.pipeline.modules</groupId>
-        <artifactId>audio-modules-bom</artifactId>
-        <version>1.10.0</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.daisy.pipeline.modules</groupId>
-        <artifactId>nlp-modules-bom</artifactId>
-        <version>1.10.0</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.daisy.pipeline.modules</groupId>
-        <artifactId>scripts-utils-bom</artifactId>
-        <version>1.10.0</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.daisy.pipeline.modules</groupId>
-        <artifactId>common-utils-bom</artifactId>
-        <version>1.10.0</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+	<dependencyManagement>
+		<dependencies>
+			<!-- TTS Modules BoM -->
+			<dependency>
+				<groupId>org.daisy.pipeline.modules</groupId>
+				<artifactId>tts-modules-bom</artifactId>
+				<version>1.10.2-SNAPSHOT</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<!-- Engine BoM -->
+			<dependency>
+				<groupId>org.daisy.pipeline</groupId>
+				<artifactId>framework-bom</artifactId>
+				<version>1.10.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<!-- Other modules BoM -->
+			<dependency>
+				<groupId>org.daisy.pipeline.modules</groupId>
+				<artifactId>audio-modules-bom</artifactId>
+				<version>1.10.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.daisy.pipeline.modules</groupId>
+				<artifactId>nlp-modules-bom</artifactId>
+				<version>1.10.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.daisy.pipeline.modules</groupId>
+				<artifactId>scripts-utils-bom</artifactId>
+				<version>1.10.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.daisy.pipeline.modules</groupId>
+				<artifactId>common-utils-bom</artifactId>
+				<version>1.10.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.daisy.pipeline.build</groupId>
+										<artifactId>modules-build-helper</artifactId>
+										<versionRange>[2.0.0,)</versionRange>
+										<goals>
+											<goal>process-catalog</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<execute>
+											<runOnIncremental>false</runOnIncremental>
+										</execute>
+									</action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
 </project>
