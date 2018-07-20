@@ -20,9 +20,8 @@ import org.osgi.service.component.ComponentContext;
 public class ESpeakService extends AbstractTTSService {
 	
 	@Activate
-	@Override
-	protected void loadSSMLadapter(ComponentContext context) {
-		super.loadSSMLadapter(context);
+	protected void loadSSMLadapter() {
+		super.loadSSMLadapter("/transform-ssml.xsl", ESpeakService.class);
 	}
 
 	@Override
