@@ -189,8 +189,7 @@ public class TextToPcmThread implements FormatSpecifications {
 	private void flush(ContiguousText section, BlockingQueue<ContiguousPCM> pcmOutput) {
 		if (section != null && mLinksOfCurrentFile.size() > 0) {
 			if (mLastFormat == null) {
-				mTTSLog.addGeneralError(ErrorCode.AUDIO_MISSING,
-				        "cannot flush the audio data because the audio format is null");
+				throw new RuntimeException("coding error"); // should not happen
 			} else {
 				String filePrefix = String.format("part%04d_%02d_%03d", section
 				        .getDocumentPosition(), section.getDocumentSplitPosition(),
@@ -495,7 +494,7 @@ public class TextToPcmThread implements FormatSpecifications {
 			        + ": something went wrong with " + originalVoice + ". Voice " + newVoice
 			        + " used instead to synthesize sentence");
 
-			if (!tts.getAudioOutputFormat().matches(mLastFormat))
+			if (mLastFormat != null && !tts.getAudioOutputFormat().matches(mLastFormat))
 				flush(section, pcmOutput);
 		}
 		mLastFormat = tts.getAudioOutputFormat();
