@@ -19,7 +19,20 @@ import com.google.common.base.Optional;
  */
 public class EncodingThread {
 
+	class EncodingException extends RuntimeException {
+		public EncodingException(String message, Throwable cause) {
+			super(message, cause);
+		}
+		public EncodingException(Throwable t) {
+			super(t);
+		}
+		public EncodingException(String message) {
+			super(message);
+		}
+	}
+	
 	private Thread mThread;
+	private Throwable criticalError;
 
 	void start(final AudioServices encoderRegistry,
 	        final BlockingQueue<ContiguousPCM> inputPCM, final IPipelineLogger logger,
@@ -104,10 +117,12 @@ public class EncodingThread {
 							String msg = "timeout while encoding audio to "
 							        + job.getDestinationFilePrefix() + ": " + getStack(e);
 							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
+							throw new EncodingException(e);
 						} catch (Throwable t) {
 							String msg = "error while encoding audio to "
 							        + job.getDestinationFilePrefix() + ": " + getStack(t);
 							ttslog.addGeneralError(ErrorCode.CRITICAL_ERROR, msg);
+							throw new EncodingException(t);
 						} finally {
 							timeout.disable();
 						}
@@ -119,14 +134,23 @@ public class EncodingThread {
 				timeout.close();
 			}
 		};
+		mThread.setUncaughtExceptionHandler(
+			(thread, throwable) -> { criticalError = throwable; }
+		);
 		mThread.start();
 	}
 
-	void waitToFinish() {
+	void waitToFinish() throws EncodingException {
+		if (criticalError != null) {
+			if (criticalError instanceof EncodingException)
+				throw (EncodingException)criticalError;
+			else
+				throw new RuntimeException("coding error");
+		}
 		try {
 			mThread.join();
 		} catch (InterruptedException e) {
-			//should not happen
+			throw new RuntimeException(); // should not happen
 		}
 	}
 

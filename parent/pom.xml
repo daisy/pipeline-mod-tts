@@ -15,6 +15,10 @@
   <name>DAISY Pipeline 2 :: TTS Modules Parent POM</name>
   <description>Parent POM for modules related to TTS-based production</description>
 
+  <properties>
+    <java.version>1.8</java.version>
+  </properties>
+  
   <dependencyManagement>
     <dependencies>
       <!--
