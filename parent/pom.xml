@@ -80,8 +80,8 @@
   </dependencyManagement>
 
   <properties>
-    <!-- must match version from framework-bom -->
-    <saxon.versionRange>[9.5.1,9.5.2)</saxon.versionRange>
+   <!-- must match version from framework-bom -->
+    <saxon.versionRange>[9.8.0,9.8.1)</saxon.versionRange>
   </properties>
 
   <build>
