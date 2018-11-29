@@ -27,12 +27,16 @@ import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class OSXSpeechEngine extends MarklessTTSEngine {
 
 	private AudioFormat mAudioFormat;
 	private String mSayPath;
 	private int mPriority;
 	private final static int MIN_CHUNK_SIZE = 2048;
+	private final static Logger mLogger = LoggerFactory.getLogger(OSXSpeechEngine.class);
 
 	public OSXSpeechEngine(OSXSpeechService service, String osxPath, int priority) {
 		super(service);
@@ -53,6 +57,7 @@ public class OSXSpeechEngine extends MarklessTTSEngine {
 			new CommandRunner(mSayPath, "--data-format=LEI16@22050", "-o",
 			                  waveOut.getAbsolutePath(), "-v", voice.name)
 				.feedInput(sentence.getBytes("utf-8"))
+				.consumeError(mLogger)
 				.run();
 			
 			// read the wave on the standard output
@@ -116,6 +121,7 @@ public class OSXSpeechEngine extends MarklessTTSEngine {
 						}
 					}
 				)
+				.consumeError(mLogger)
 				.run();
 		} catch (Throwable e) {
 			throw new SynthesisException(e.getMessage(), e.getCause());

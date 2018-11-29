@@ -28,6 +28,9 @@ import org.daisy.pipeline.tts.TTSRegistry.TTSResource;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ESpeakEngine extends MarklessTTSEngine {
 
 	private AudioFormat mAudioFormat;
@@ -35,6 +38,7 @@ public class ESpeakEngine extends MarklessTTSEngine {
 	private String mESpeakPath;
 	private final static int MIN_CHUNK_SIZE = 2048;
 	private int mPriority;
+	private final static Logger mLogger = LoggerFactory.getLogger(ESpeakEngine.class);
 
 	public ESpeakEngine(ESpeakService eSpeakService, String eSpeakPath, int priority) {
 		super(eSpeakService);
@@ -75,6 +79,7 @@ public class ESpeakEngine extends MarklessTTSEngine {
 						}
 						fi.close();
 				})
+				.consumeError(mLogger)
 				.run();
 		} catch (MemoryException|InterruptedException e) {
 			SoundUtil.cancelFootPrint(result, bufferAllocator);
@@ -115,6 +120,7 @@ public class ESpeakEngine extends MarklessTTSEngine {
 						}
 					}
 				)
+				.consumeError(mLogger)
 				.run();
 			
 			// Second: get the list of the voices for the found languages.
@@ -134,6 +140,7 @@ public class ESpeakEngine extends MarklessTTSEngine {
 							}
 						}
 					)
+					.consumeError(mLogger)
 					.run();
 			}
 		} catch (InterruptedException e) {

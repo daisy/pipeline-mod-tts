@@ -27,6 +27,9 @@ import org.daisy.pipeline.tts.TTSService.Mark;
 import org.daisy.pipeline.tts.TTSService.SynthesisException;
 import org.daisy.pipeline.tts.Voice;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class QfrencyEngine extends TTSEngine {
 
 	private AudioFormat mAudioFormat;
@@ -34,6 +37,7 @@ public class QfrencyEngine extends TTSEngine {
 	private String mQfrencyPath;
 	private final static int MIN_CHUNK_SIZE = 2048;
 	private int mPriority;
+	private final static Logger mLogger = LoggerFactory.getLogger(QfrencyEngine.class);
 
 	public QfrencyEngine(QfrencyService qfrencyService, String qfrencyPath, String address, int priority) {
 		super(qfrencyService);
@@ -65,7 +69,9 @@ public class QfrencyEngine extends TTSEngine {
 			lCmd[5]=voice.name;
 			lCmd[6]="\'"+sentence+"\'";
 
-			CommandRunner.run(lCmd);
+			new CommandRunner(lCmd)
+				.consumeError(mLogger)
+				.run();
 
 			BufferedInputStream in = new BufferedInputStream(new FileInputStream(outFile));
 			AudioInputStream fi = AudioSystem.getAudioInputStream(in);
@@ -128,6 +134,7 @@ public class QfrencyEngine extends TTSEngine {
 						}
 					}
 				)
+				.consumeError(mLogger)
 				.run();
 			return list;
 		} catch (Throwable x) {
